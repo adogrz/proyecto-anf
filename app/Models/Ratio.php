@@ -12,7 +12,7 @@ class Ratio extends Model
 
     protected $table = 'ratios';
 
-    protected $fillable = ['sector_id', 'nombre_ratio', 'valor', 'tipo_ratio'];
+    protected $fillable = ['sector_id', 'nombre_ratio', 'valor', 'tipo_ratio', 'mensaje_superior', 'mensaje_inferior', 'mensaje_igual'];
 
     public function sector(): BelongsTo
     {

@@ -1,6 +1,23 @@
 # RatioView
 
-RatioView es una herramienta de análisis financiero diseñada para ayudarte a analizar estados financieros, realizar análisis de ratios, comparativas con estándares de la industria, crear proyecciones y realizar análisis proforma de presupuestos de caja.
+RatioView es una herramienta de análisis financiero diseñada para analizar estados financieros, realizar análisis de ratios, comparativas con estándares de la industria, crear proyecciones y realizar análisis proforma de presupuestos de caja.
+
+## Características Principales
+
+*   **Análisis de Ratios Detallado:** Calcula automáticamente los ratios financieros clave de una empresa.
+*   **Benchmarking Avanzado:** Compara los ratios de la empresa contra dos métricas clave:
+    1.  **Estándares de la Industria:** Valores de referencia por sector industrial, basados en el 'Almanac Of Business And Industrial Financial Ratios'.
+    2.  **Promedio del Sistema:** Comparativa contra el promedio de todas las empresas registradas en la plataforma.
+*   **Análisis Cualitativo:** Ofrece interpretaciones de texto sobre la salud financiera de la empresa, explicando si los ratios son superiores, inferiores o similares al estándar del sector.
+*   **Catálogo de Cuentas Flexible:** Cada empresa puede definir su propio catálogo de cuentas. El sistema incluye una herramienta de **mapeo** para vincular el catálogo de la empresa con un catálogo base estandarizado que el sistema usa para los cálculos.
+*   **Importación desde Excel:** Facilita la carga de estados financieros a través de archivos Excel, reconociendo las cuentas por su código o nombre gracias al sistema de mapeo.
+*   **Análisis Horizontal:** Permite comparar la evolución de los estados financieros de una empresa a lo largo de varios años.
+*   **Proyecciones de Ventas:** Un módulo dedicado para proyectar ventas a 12 meses utilizando métodos de Mínimos Cuadrados, Incremento Porcentual e Incremento Absoluto.
+*   **Gestión de Roles y Permisos:** Sistema de control de acceso robusto con roles predefinidos (Administrador, Gerente Financiero, Analista de Datos, Auditor).
+
+## Futuras Mejoras
+
+*   **Análisis con Inteligencia Artificial:** Se planea integrar un modelo de IA (vía Ollama o similar) como una opción para generar un análisis financiero cualitativo de forma automática, ofreciendo una alternativa a los textos predefinidos.
 
 ## Instalación
 

@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnalisisController;
-use App\Http\Controllers\CatalogosCuentasController;
+use App\Http\Controllers\CuentasBaseController;
 use App\Http\Controllers\EmpresasController;
 use App\Http\Controllers\EstadosFinancierosController;
 use App\Http\Controllers\ProyeccionesVentasController;
@@ -20,9 +20,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->name('dashboard');
 
     // Administración (Solo para rol 'Administrador')
-    Route::middleware('can:catalogos.index')->group(function () {
+    Route::middleware('can:sectores.index')->group(function () {
         Route::resource('sectores', SectoresController::class);
-        Route::resource('sectores.ratios', RatiosController::class)->shallow();
+        Route::resource('sectores.ratios', RatiosController::class)->shallow()->middleware('can:ratios.index');
+    });
+
+    Route::middleware('can:cuentas-base.index')->group(function () {
+        Route::resource('cuentas-base', CuentasBaseController::class);
     });
 
     // Gestión de Empresas y sus datos (Para 'Gerente Financiero' y 'Administrador')

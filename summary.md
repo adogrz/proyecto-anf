@@ -42,3 +42,24 @@ Se definieron los siguientes roles y permisos, específicos para una aplicación
 
 * Este sistema emitirá Informes de análisis financieros de empresas de un sector particular predefinido (algo similar a la razón social de las empresas salvadoreñas). Esta tipificación(sector) será fundamentada, para este apartado el grupo puede considerar otras realidades como la 
 chilena, mexicana, estadounidense o de otro país que posea información de los ratios financieros (o razones financieras) por sector.  Se definirán parámetros de comparación de los ratios financieros por sector (ejemplo prueba acida=0.55 para sector minas) y en base a un promedio de todos los datos ya introducidos, por ejemplo, si ya se introdujo información financiera de 4 empresas, y sus ratios de prueba acida son 0.5, 0.6, 0.7 y 0.8 , su promedio será  0.65. Así al comparar las 4 empresas A, B, C y D y realizar un análisis de ratios financieros en la prueba Acida aparecerá como empresas que lo cumplen la B, C y D si se considera la ratio por sector y C y D si consideramos los promedios de las empresas procesadas por el sistema. El sistema considerara que se puedan introducir los catálogos contables de la empresa, una sola vez, estableciendo cuáles serán las cuentas que requerirán las ratios financieros para realizar sus cálculos.  Ejemplo para la empresa A la cuenta 11 seria Activos corrientes y para la empresa B podría ser 1.1. En pocas palabras no se utilizará un catálogo estático para que sea utilizado para las n empresas. Solo será estático (la estructura de catálogo) para la empresa particular, y será  introducida una sola vez.  Se considerará comparación horizontal la hecha de dos o más años. El sistema debe de graficar adicionalmente las variaciones de una cuenta seleccionable en un periodo establecido  ejemplo: cuenta de activo circulante, periodo 2020-2024. Proyección de Ventas Este sistema deberá tener un modulo que permita realizar una proyección de 12 meses de ventas basándose en los datos históricos subidos, los métodos a considerar son Mínimos cuadrados, Incremento porcentual e incremento absoluto.  Las entradas de datos (12 meses) podrán ser digitadas o subidas con un archivo Excel, si los datos generados son solo 11, el sistema debe generar el mes 12. 
+
+## Sesión de Arquitectura y Estructura de Datos
+
+En esta sesión se definió y construyó la arquitectura principal de la base de datos y los componentes backend para las funcionalidades clave de RatioView.
+
+*   **Creación del Modelo de Datos:** Se generaron las migraciones, modelos y controladores para las entidades principales del sistema:
+    *   `Sectores`, `Empresas`, `CatalogosCuentas`, `EstadosFinancieros`, `DetallesEstados`, `ProyeccionesVentas`.
+    *   Se refactorizó la entidad `RatiosEstandar` a una tabla `Ratios` más genérica, capaz de manejar diferentes tipos de ratios (`tipo_ratio`).
+
+*   **Catálogo de Cuentas Base:**
+    *   Se introdujo el concepto de un **catálogo maestro** (`cuentas_base`) para estandarizar las cuentas que el sistema necesita para los análisis.
+    *   Esta tabla incluye una clasificación por tipo de cuenta (`tipo_cuenta`) para permitir cálculos y validaciones más robustas.
+    *   Este enfoque facilita el **mapeo** de los catálogos específicos de cada empresa contra un estándar del sistema, lo cual es crucial para la importación de datos desde Excel.
+
+*   **Análisis Cualitativo de Ratios:**
+    *   Se extendió la tabla `ratios` para incluir columnas de texto (`mensaje_superior`, `mensaje_inferior`, `mensaje_igual`).
+    *   Esto permite almacenar la interpretación cualitativa de los ratios (basada en el 'Almanac Of Business And Industrial Financial Ratios'), proporcionando no solo números sino también un análisis escrito.
+
+*   **Actualización de Activos:** Se actualizaron el ícono de la aplicación (`favicon.svg`) y el logo (`logo.svg`) con los nuevos archivos proporcionados.
+
+*   **Ideas a Futuro:** Se discutió y validó la viabilidad de integrar un **modelo de IA (como Ollama)** en una futura versión para generar análisis financieros de forma automática. Esta idea se ha añadido a la documentación como una posible mejora a futuro.
