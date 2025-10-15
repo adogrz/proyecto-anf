@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnalisisController;
+use App\Http\Controllers\CatalogosCuentasController;
 use App\Http\Controllers\CuentasBaseController;
 use App\Http\Controllers\EmpresasController;
 use App\Http\Controllers\EstadosFinancierosController;
