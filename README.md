@@ -54,6 +54,3 @@ RatioView utiliza un sistema de control de acceso basado en roles para gestionar
 *   **Administrador**: Este rol tiene acceso completo a la aplicación, incluyendo:
     *   Gestión de usuarios y sus roles.
     *   Configuraciones y ajustes del sistema.
-
-
-¿Qué te parecen estos roles? Si estás de acuerdo, procederé a implementarlos en la aplicación.
