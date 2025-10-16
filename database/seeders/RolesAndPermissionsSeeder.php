@@ -18,6 +18,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Permission names
         $permissions = [
+            'administracion.index',
             'catalogos.index',
             'catalogos.create',
             'catalogos.edit',

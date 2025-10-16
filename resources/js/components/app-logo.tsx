@@ -1,13 +1,18 @@
+
 export default function AppLogo() {
     return (
         <>
-            <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-                <span className="font-semibold">R</span>
-            </div>
             <div className="ml-1 grid flex-1 text-left text-sm">
-                <span className="mb-0.5 truncate font-semibold leading-tight">
-                    RatioView
-                </span>
+                <img
+                    src="../logo-light.png"
+                    alt="Logo RatioView Light"
+                    className="block dark:hidden w-full h-auto transition-opacity duration-300"
+                />
+                <img
+                    src="../logo-dark.png"
+                    alt="Logo RatioView Dark"
+                    className="hidden dark:block w-full h-auto transition-opacity duration-300"
+                />
             </div>
         </>
     );
