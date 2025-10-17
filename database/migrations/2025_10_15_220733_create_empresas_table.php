@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('nombre');
             $table->foreignId('sector_id')->constrained('sectores')->onDelete('cascade');
+            $table->foreignId('plantilla_catalogo_id')->nullable()->constrained('plantillas_catalogo')->onDelete('set null');
             $table->foreignId('usuario_id')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
         });

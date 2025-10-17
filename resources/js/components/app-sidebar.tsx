@@ -125,17 +125,6 @@ export function AppSidebar() {
                 },
             ],
         },
-        {
-            title: 'Configuración',
-            icon: Settings,
-            items: [
-                {
-                    title: 'Settings',
-                    href: '/settings/profile',
-                    icon: Settings,
-                },
-            ],
-        },
     ];
 
     function filterNavItems(items: NavItem[], permissions: string[]): NavItem[] {

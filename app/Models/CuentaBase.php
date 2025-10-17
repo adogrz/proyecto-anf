@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CuentaBase extends Model
 {
@@ -11,5 +13,27 @@ class CuentaBase extends Model
 
     protected $table = 'cuentas_base';
 
-    protected $fillable = ['mapa_sistema', 'nombre', 'tipo_cuenta', 'descripcion'];
+    protected $fillable = [
+        'plantilla_catalogo_id',
+        'parent_id',
+        'codigo',
+        'nombre',
+        'tipo_cuenta',
+        'naturaleza',
+    ];
+
+    public function plantillaCatalogo(): BelongsTo
+    {
+        return $this->belongsTo(PlantillaCatalogo::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(CuentaBase::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(CuentaBase::class, 'parent_id');
+    }
 }

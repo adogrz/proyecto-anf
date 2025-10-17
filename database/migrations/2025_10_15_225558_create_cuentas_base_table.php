@@ -13,11 +13,15 @@ return new class extends Migration
     {
         Schema::create('cuentas_base', function (Blueprint $table) {
             $table->id();
-            $table->string('mapa_sistema')->unique();
+            $table->foreignId('plantilla_catalogo_id')->constrained('plantillas_catalogo')->onDelete('cascade');
+            $table->foreignId('parent_id')->nullable()->constrained('cuentas_base')->onDelete('cascade');
+            $table->string('codigo');
             $table->string('nombre');
-            $table->enum('tipo_cuenta', ['activo_corriente', 'activo_no_corriente', 'pasivo_corriente', 'pasivo_no_corriente', 'patrimonio', 'ingreso', 'costo', 'gasto']);
-            $table->text('descripcion')->nullable();
+            $table->enum('tipo_cuenta', ['AGRUPACION', 'DETALLE']);
+            $table->enum('naturaleza', ['DEUDORA', 'ACREEDORA']);
             $table->timestamps();
+
+            $table->unique(['plantilla_catalogo_id', 'codigo']);
         });
     }
 

@@ -11,7 +11,12 @@ class Empresa extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['nombre', 'sector_id', 'usuario_id'];
+    protected $fillable = ['nombre', 'sector_id', 'usuario_id', 'plantilla_catalogo_id'];
+
+    public function plantillaCatalogo(): BelongsTo
+    {
+        return $this->belongsTo(PlantillaCatalogo::class);
+    }
 
     public function sector(): BelongsTo
     {
