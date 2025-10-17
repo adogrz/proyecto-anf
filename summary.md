@@ -63,3 +63,37 @@ En esta sesión se definió y construyó la arquitectura principal de la base de
 *   **Actualización de Activos:** Se actualizaron el ícono de la aplicación (`favicon.svg`) y el logo (`logo.svg`) con los nuevos archivos proporcionados.
 
 *   **Ideas a Futuro:** Se discutió y validó la viabilidad de integrar un **modelo de IA (como Ollama)** en una futura versión para generar análisis financieros de forma automática. Esta idea se ha añadido a la documentación como una posible mejora a futuro.
+
+## Sesión de Refactorización de Catálogos Contables
+
+En esta sesión se realizó una reingeniería profunda del sistema de catálogos de cuentas para dotarlo de mayor flexibilidad y escalabilidad, abordando dos limitaciones clave: la incapacidad de manejar múltiples catálogos base y la falta de una estructura jerárquica.
+
+*   **Introducción de Plantillas de Catálogo:**
+    *   Se introdujo el concepto de **Plantillas de Catálogo** (`plantillas_catalogo`) para permitir que coexistan en el sistema múltiples catálogos contables maestros (ej. uno para El Salvador, otro para NIIF, etc.).
+    *   Se modificó la tabla `empresas` para que cada empresa se asocie a una plantilla específica, asegurando que las comparaciones y análisis se realicen únicamente entre entidades con una base contable comparable.
+
+*   **Rediseño Jerárquico de Cuentas Base:**
+    *   Se reestructuró por completo la tabla `cuentas_base` para soportar una estructura de árbol jerárquico.
+    *   Se añadieron los campos `parent_id`, `codigo`, `tipo_cuenta` (`AGRUPACION` o `DETALLE`) y `naturaleza` (`DEUDORA` o `ACREEDORA`).
+    *   Cada cuenta base ahora pertenece a una `plantilla_catalogo`, permitiendo múltiples catálogos jerárquicos independientes.
+
+*   **Acciones Realizadas:**
+    *   Se crearon y modificaron las migraciones para las tablas `plantillas_catalogo`, `empresas` y `cuentas_base` para reflejar la nueva arquitectura.
+    *   Se ejecutó `php artisan migrate:fresh` para reconstruir la base de datos con el nuevo esquema.
+    *   Se creó el modelo `PlantillaCatalogo.php` y se actualizaron los modelos `Empresa.php` y `CuentaBase.php` con las nuevas relaciones y propiedades.
+    *   Se creó un seeder (`CatalogoBaseSeeder.php`) con la lógica para procesar el archivo `catalogo.txt` y poblar las tablas `plantillas_catalogo` y `cuentas_base` con la estructura jerárquica correcta.
+
+## Arquitectura de Vistas (Frontend)
+
+Para dar soporte a la nueva arquitectura del backend, se definieron las siguientes vistas nuevas y modificaciones a vistas existentes.
+
+*   **Vistas Existentes a Modificar:**
+    *   **Formularios de Empresa:** En las vistas de creación y edición de empresas, se debe añadir un campo desplegable para seleccionar la `plantilla_catalogo` a la que pertenecerá la empresa.
+    *   **Interfaz de Mapeo de Cuentas:** Esta interfaz debe ser actualizada para que, al mapear las cuentas de una empresa, solo muestre las `cuentas_base` pertenecientes a la plantilla asociada a dicha empresa.
+
+*   **Nuevas Vistas Creadas:**
+    *   Se crearon los archivos base para un nuevo módulo de gestión de plantillas en `resources/js/pages/Administracion/PlantillasCatalogo/`.
+    *   `Index.tsx`: Vista principal para listar todas las plantillas de catálogo existentes en el sistema.
+    *   `Create.tsx`: Formulario para crear una nueva plantilla de catálogo.
+    *   `Edit.tsx`: Formulario para editar el nombre y la descripción de una plantilla existente.
+    *   `Show.tsx`: Vista de detalle para visualizar la estructura jerárquica (en formato de árbol) de las cuentas base que componen una plantilla específica.

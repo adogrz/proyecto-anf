@@ -8,6 +8,7 @@ use App\Http\Controllers\EstadosFinancierosController;
 use App\Http\Controllers\ProyeccionesVentasController;
 use App\Http\Controllers\RatiosController;
 use App\Http\Controllers\SectoresController;
+use App\Http\Controllers\Administracion\PlantillaCatalogoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -28,6 +29,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('can:cuentas-base.index')->group(function () {
         Route::resource('cuentas-base', CuentasBaseController::class);
+    });
+
+    Route::middleware('can:plantillas-catalogo.index')->group(function () {
+        Route::resource('plantillas-catalogo', PlantillaCatalogoController::class);
     });
 
     // Gestión de Empresas y sus datos (Para 'Gerente Financiero' y 'Administrador')
