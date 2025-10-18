@@ -1,5 +1,14 @@
-import { NavMain } from '@/components/nav-main';
-import { NavUser } from '@/components/nav-user';
+"use client";
+
+import * as React from "react";
+import { useEffect, useState } from "react";
+import { Link, usePage } from "@inertiajs/react";
+import { route } from "ziggy-js";
+
+import { NavMain } from "@/components/nav-main";
+import { NavUser } from "@/components/nav-user";
+import AppLogo from "./app-logo";
+
 import {
     Sidebar,
     SidebarContent,
@@ -8,169 +17,209 @@ import {
     SidebarMenu,
     SidebarMenuButton,
     SidebarMenuItem,
-} from '@/components/ui/sidebar';
-import { dashboard } from '@/routes';
-import { type NavItem, type SharedData } from '@/types';
-import { Link, usePage } from '@inertiajs/react';
-import { LayoutGrid, FileCog, FileText, PieChart, Settings, ShieldCheck } from 'lucide-react';
-import AppLogo from './app-logo';
+    SidebarRail,
+} from "@/components/ui/sidebar";
 
-export function AppSidebar() {
-    const { url } = usePage();
-    const { auth } = usePage<SharedData>().props;
+import {
+    LayoutGrid,
+    FileCog,
+    FileText,
+    PieChart,
+    ShieldCheck,
+    FileUp,
+} from "lucide-react";
 
-    const isItemActive = (href: string | undefined) => {
-        if (!href) {
-            return false;
-        }
-        if (href === '/' || href === '/dashboard') {
-            return url === href;
-        }
-        return url.startsWith(href as string);
+import { type NavItem, type SharedData } from "@/types";
+
+export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+    const page = usePage<SharedData>();
+    const { auth } = page.props;
+    const currentUrl = page.url;
+
+    const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+    // Cargar grupos desde localStorage
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem("sidebar-open-groups");
+            if (saved) setOpenGroups(JSON.parse(saved));
+        } catch { }
+    }, []);
+
+    // Guardar grupos abiertos
+    const toggleGroup = (key: string) => {
+        setOpenGroups((prev) => {
+            const updated = { ...prev, [key]: !prev[key] };
+            localStorage.setItem("sidebar-open-groups", JSON.stringify(updated));
+            return updated;
+        });
     };
 
+    // Determinar si un enlace está activo
+    const getHrefString = (href: string | { url?: string } | undefined) =>
+        typeof href === "string" ? href : href?.url;
+
+    const isItemActive = (href: string | { url?: string } | undefined) => {
+        const hrefStr = getHrefString(href);
+        if (!hrefStr) return false;
+        try {
+            const linkUrl = new URL(hrefStr, window.location.origin);
+            const linkPath = linkUrl.pathname;
+            return (
+                linkPath === currentUrl ||
+                currentUrl.startsWith(linkPath) ||
+                (linkPath === "/dashboard" && currentUrl === "/")
+            );
+        } catch {
+            return false;
+        }
+    };
+
+    // =======================
+    // ESTRUCTURA PRINCIPAL
+    // =======================
     const navStructure: NavItem[] = [
         {
-            title: 'Dashboard',
-            href: dashboard(),
+            title: "Dashboard",
+            href: route("dashboard"),
             icon: LayoutGrid,
         },
         {
-            title: 'Administración',
+            title: "Importación",
+            href: route("importacion.create"),
+            icon: FileUp,
+            permission: "estados-financieros.create",
+        },
+        {
+            title: "Administración",
             icon: ShieldCheck,
-            permission: 'administracion.index',
+            permission: "administracion.index",
             items: [
                 {
-                    title: 'Sectores',
-                    href: '#',
-                    permission: 'sectores.index',
+                    title: "Sectores",
+                    href: route("sectores.index"),
+                    permission: "sectores.index",
+                },
+
+                {
+                    title: "Cuentas Base",
+                    href: route("cuentas-base.index"),
+                    permission: "cuentas-base.index",
                 },
                 {
-                    title: 'Ratios',
-                    href: '#',
-                    permission: 'ratios.index',
-                },
-                {
-                    title: 'Cuentas Base',
-                    href: '#',
-                    permission: 'cuentas-base.index',
+                    title: "Plantillas de Catálogo",
+                    href: route("plantillas-catalogo.index"),
+                    permission: "plantillas-catalogo.index",
                 },
             ],
         },
         {
-            title: 'Catálogos',
+            title: "Empresas",
             icon: FileCog,
-            permission: 'catalogos.index',
+            permission: "empresas.index",
             items: [
                 {
-                    title: 'Tipos de Empresa',
-                    href: '#',
-                    permission: 'tipos-empresa.index',
+                    title: "Listado de Empresas",
+                    href: route("empresas.index"),
+                    permission: "empresas.index",
                 },
                 {
-                    title: 'Empresas',
-                    href: '#',
-                    permission: 'empresas.index',
+                    title: "Catálogos Contables",
+                    href: route("empresas.catalogos.index", { empresa: 1 }),
+                    permission: "catalogos.index",
                 },
                 {
-                    title: 'Ratios Generales',
-                    href: '#',
-                    permission: 'ratios-generales.index',
+                    title: "Estados Financieros",
+                    href: route("empresas.estados-financieros.index", { empresa: 1 }),
+                    permission: "estados-financieros.index",
+                },
+                {
+                    title: "Proyecciones",
+                    href: route("empresas.proyecciones.index", { empresa: 1 }),
+                    permission: "proyecciones.index",
                 },
             ],
         },
         {
-            title: 'Análisis',
+            title: "Análisis",
             icon: PieChart,
+            permission: "informes.index",
             items: [
                 {
-                    title: 'Estados Financieros',
-                    href: '#',
-                    icon: PieChart,
-                    permission: 'estados-financieros.index',
+                    title: "Ratios Comparativos",
+                    href: route("analisis.ratios", { empresa: 1, anio: new Date().getFullYear() }),
+                    permission: "informes.index",
                 },
                 {
-                    title: 'Proyecciones',
-                    href: '#',
-                    icon: FileText,
-                    permission: 'proyecciones.index',
+                    title: "Análisis Horizontal",
+                    href: route("analisis.horizontal", { empresa: 1 }),
+                    permission: "informes.index",
                 },
                 {
-                    title: 'Análisis Proforma',
-                    href: '#',
-                    icon: FileText,
-                    permission: 'analisis-proforma.index',
-                },
-            ],
-        },
-        {
-            title: 'Informes',
-            icon: FileText,
-            permission: 'informes.index',
-            items: [
-                {
-                    title: 'Análisis Vertical',
-                    href: '#',
-                    permission: 'analisis-vertical.index',
-                },
-                {
-                    title: 'Análisis Horizontal',
-                    href: '#',
-                    permission: 'analisis-horizontal.index',
-                },
-                {
-                    title: 'Análisis de Ratios',
-                    href: '#',
-                    permission: 'ratios-financieros.index',
+                    title: "Historial de Cuenta",
+                    href: route("analisis.historial-cuenta", { empresa: 1 }),
+                    permission: "informes.index",
                 },
             ],
         },
     ];
 
+
+    // =======================
+    // FILTRO POR PERMISOS
+    // =======================
     function filterNavItems(items: NavItem[], permissions: string[]): NavItem[] {
         return items
             .map((item) => {
                 if (item.items) {
-                    item.items = filterNavItems(item.items, permissions);
+                    const sub = filterNavItems(item.items, permissions);
+                    return { ...item, items: sub };
                 }
                 return item;
             })
             .filter((item) => {
-                if (!item.permission) {
-                    return true;
-                }
-                if (item.items && item.items.length > 0) {
-                    return true;
-                }
+                if (!item.permission) return true;
+                if (item.items && item.items.length > 0) return true;
                 return permissions.includes(item.permission);
             });
     }
 
-    const mainNavItems = navStructure
-        .map((item) => {
-            const isGroup = !!item.items;
-            const groupIsOpen = isGroup ? item.items!.some((sub) => isItemActive(sub.href)) : false;
+    // =======================
+    // MAPEO FINAL DE ITEMS
+    // =======================
+    const mainNavItems = navStructure.map((item, idx) => {
+        const key = item.title || `group-${idx}`;
+        const isGroup = !!item.items;
+        const groupIsOpen =
+            isGroup &&
+            (openGroups[key] ||
+                item.items!.some((sub) => isItemActive(sub.href)));
 
-            return {
-                ...item,
-                isActive: !isGroup && isItemActive(item.href),
-                isOpen: groupIsOpen,
-                items: item.items?.map((subItem) => ({
-                    ...subItem,
-                    isActive: isItemActive(subItem.href),
-                })),
-            };
-        });
+        return {
+            ...item,
+            isActive: !isGroup && isItemActive(item.href),
+            isOpen: groupIsOpen,
+            toggleKey: key,
+            items: item.items?.map((subItem) => ({
+                ...subItem,
+                isActive: isItemActive(subItem.href),
+            })),
+        };
+    });
 
     const filteredMainNavItems = filterNavItems(mainNavItems, auth.permissions);
 
+    // =======================
+    // RENDER
+    // =======================
     return (
-        <Sidebar collapsible='icon' variant='inset'>
+        <Sidebar collapsible="icon" {...props}>
+            {/* === HEADER === */}
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
-                        <SidebarMenuButton size='lg' asChild>
-                            <Link href={dashboard()} prefetch>
+                        <SidebarMenuButton size="lg" asChild>
+                            <Link href={route("dashboard")} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -178,13 +227,22 @@ export function AppSidebar() {
                 </SidebarMenu>
             </SidebarHeader>
 
+            {/* === CONTENIDO === */}
             <SidebarContent>
-                <NavMain items={filteredMainNavItems} />
+                <NavMain
+                    items={filteredMainNavItems}
+                    onGroupToggle={toggleGroup}
+                    isGroupOpen={(key: string) => !!openGroups[key]}
+                />
             </SidebarContent>
 
+            {/* === FOOTER === */}
             <SidebarFooter>
                 <NavUser />
             </SidebarFooter>
+
+            {/* === RAIL === */}
+            <SidebarRail />
         </Sidebar>
     );
 }

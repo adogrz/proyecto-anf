@@ -31,7 +31,12 @@
         }
     </style>
 
-    <title inertia>{{ config('app.name', 'Laravel') }}</title>
+        <title inertia>{{ config('app.name', 'Laravel') }}</title>
+
+        <!-- Routes -->
+        @routes
+
+        <!-- Scripts -->
 
     <link
         rel="icon"

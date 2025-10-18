@@ -16,11 +16,10 @@ return new class extends Migration
             $table->foreignId('empresa_id')->constrained('empresas')->onDelete('cascade');
             $table->string('codigo_cuenta');
             $table->string('nombre_cuenta');
-            $table->string('mapeo_cuenta_sistema')->comment('Mapeo a la cuenta interna del sistema. Ej: current_assets, cash');
+            $table->foreignId('cuenta_base_id')->nullable()->constrained('cuentas_base')->onDelete('set null');
             $table->timestamps();
 
             $table->unique(['empresa_id', 'codigo_cuenta']);
-            $table->unique(['empresa_id', 'mapeo_cuenta_sistema']);
         });
     }
 

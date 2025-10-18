@@ -2,63 +2,59 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Ratio;
+use App\Models\Sector;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class RatiosController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function create(Sector $sector)
     {
-        //
+        return Inertia::render('Administracion/Ratios/Create', ['sector' => $sector]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function store(Request $request, Sector $sector)
     {
-        //
+        $request->validate([
+            'nombre_ratio' => 'required|string|max:255',
+            'valor' => 'required|numeric',
+            'tipo_ratio' => 'required|string|max:255',
+            'mensaje_superior' => 'nullable|string',
+            'mensaje_inferior' => 'nullable|string',
+            'mensaje_igual' => 'nullable|string',
+        ]);
+
+        $sector->ratios()->create($request->all());
+
+        return redirect()->route('sectores.show', $sector)->with('success', 'Ratio creado con éxito.');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function edit(Ratio $ratio)
     {
-        //
+        return Inertia::render('Administracion/Ratios/Edit', ['ratio' => $ratio]);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
+    public function update(Request $request, Ratio $ratio)
+    { 
+        $request->validate([
+            'nombre_ratio' => 'required|string|max:255',
+            'valor' => 'required|numeric',
+            'tipo_ratio' => 'required|string|max:255',
+            'mensaje_superior' => 'nullable|string',
+            'mensaje_inferior' => 'nullable|string',
+            'mensaje_igual' => 'nullable|string',
+        ]);
+
+        $ratio->update($request->all());
+
+        return redirect()->route('sectores.show', $ratio->sector_id)->with('success', 'Ratio actualizado con éxito.');
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function destroy(Ratio $ratio)
     {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        $sectorId = $ratio->sector_id;
+        $ratio->delete();
+        return redirect()->route('sectores.show', $sectorId)->with('success', 'Ratio eliminado con éxito.');
     }
 }

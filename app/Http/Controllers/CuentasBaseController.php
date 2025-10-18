@@ -2,63 +2,93 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CuentaBase;
+use App\Models\PlantillaCatalogo;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Illuminate\Validation\Rule;
 
 class CuentasBaseController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $cuentasBase = CuentaBase::with('plantillaCatalogo', 'parent')->get();
+
+        return Inertia::render('Administracion/CuentasBase/Index', [
+            'cuentasBase' => $cuentasBase,
+            'plantillas' => PlantillaCatalogo::all(),
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        $plantillas = PlantillaCatalogo::all();
+        $cuentasBase = CuentaBase::all();
+        return Inertia::render('Administracion/CuentasBase/Create', [
+            'plantillas' => $plantillas,
+            'cuentasBase' => $cuentasBase,
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
+            'codigo' => 'required|string|max:255',
+            'nombre' => 'required|string|max:255',
+            'tipo_cuenta' => ['required', 'string', Rule::in(['AGRUPACION', 'DETALLE'])],
+            'naturaleza' => ['required', 'string', Rule::in(['DEUDORA', 'ACREEDORA'])],
+            'parent_id' => 'nullable|exists:cuentas_base,id',
+        ]);
+
+        CuentaBase::create($request->all());
+
+        return redirect()->route('cuentas-base.index')
+                         ->with('success', 'Cuenta base creada con éxito.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(CuentaBase $cuentaBase)
     {
-        //
+        $cuentaBase->load('plantillaCatalogo', 'parent', 'children');
+        return Inertia::render('Administracion/CuentasBase/Show', [
+            'cuentaBase' => $cuentaBase,
+        ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function edit(CuentaBase $cuentaBase)
     {
-        //
+        $plantillas = PlantillaCatalogo::all();
+        $allCuentasBase = CuentaBase::all();
+        $cuentaBase->load('plantillaCatalogo', 'parent', 'children');
+        return Inertia::render('Administracion/CuentasBase/Edit', [
+            'cuentaBase' => $cuentaBase,
+            'plantillas' => $plantillas,
+            'allCuentasBase' => $allCuentasBase,
+        ]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, CuentaBase $cuentaBase)
     {
-        //
+        $request->validate([
+            'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
+            'codigo' => 'required|string|max:255',
+            'nombre' => 'required|string|max:255',
+            'tipo_cuenta' => ['required', 'string', Rule::in(['AGRUPACION', 'DETALLE'])],
+            'naturaleza' => ['required', 'string', Rule::in(['DEUDORA', 'ACREEDORA'])],
+            'parent_id' => 'nullable|exists:cuentas_base,id',
+        ]);
+
+        $cuentaBase->update($request->all());
+
+        return redirect()->route('cuentas-base.index')
+                         ->with('success', 'Cuenta base actualizada con éxito.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(CuentaBase $cuentaBase)
     {
-        //
+        $cuentaBase->delete();
+
+        return redirect()->route('cuentas-base.index')
+                         ->with('success', 'Cuenta base eliminada con éxito.');
     }
 }

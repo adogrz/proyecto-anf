@@ -10,6 +10,8 @@ class Sector extends Model
 {
     use HasFactory;
 
+    protected $table = 'sectores';
+
     protected $fillable = ['nombre', 'descripcion'];
 
     public function ratios(): HasMany

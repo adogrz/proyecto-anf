@@ -2,63 +2,64 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Sector;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class SectoresController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index()
     {
-        //
+        $sectores = Sector::latest()->get();
+        return Inertia::render('Administracion/Sectores/Index', ['sectores' => $sectores]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
     public function create()
     {
-        //
+        return Inertia::render('Administracion/Sectores/Create');
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(Request $request)
     {
-        //
+        $request->validate([
+            'nombre' => 'required|string|max:255|unique:sectores',
+            'descripcion' => 'nullable|string',
+        ]);
+
+        Sector::create($request->all());
+
+        return redirect()->route('sectores.index')->with('success', 'Sector creado con éxito.');
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
+    public function show(Sector $sector)
     {
-        //
+        // Since ratios are a nested resource, we can show them here.
+        $sector->load('ratios');
+        return Inertia::render('Administracion/Sectores/Show', [
+            'sector' => $sector,
+        ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
+    public function edit(Sector $sector)
     {
-        //
+        return Inertia::render('Administracion/Sectores/Edit', ['sector' => $sector]);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
+    public function update(Request $request, Sector $sector)
     {
-        //
+        $request->validate([
+            'nombre' => 'required|string|max:255|unique:sectores,nombre,' . $sector->id,
+            'descripcion' => 'nullable|string',
+        ]);
+
+        $sector->update($request->all());
+
+        return redirect()->route('sectores.index')->with('success', 'Sector actualizado con éxito.');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
+    public function destroy(Sector $sector)
     {
-        //
+        $sector->delete();
+        return redirect()->route('sectores.index')->with('success', 'Sector eliminado con éxito.');
     }
 }

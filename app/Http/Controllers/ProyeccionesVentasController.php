@@ -2,63 +2,38 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Empresa;
 use Illuminate\Http\Request;
+use Inertia\Inertia;
 
 class ProyeccionesVentasController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Empresa $empresa)
     {
-        //
+        $proyecciones = $empresa->proyeccionesVentas()->orderBy('anio')->orderBy('mes')->get()->groupBy(['anio', 'tipo']);
+
+        return Inertia::render('Administracion/Empresas/Proyecciones/Index', [
+            'empresa' => $empresa,
+            'proyecciones' => $proyecciones,
+        ]);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function create(Empresa $empresa)
     {
-        //
+        return Inertia::render('Administracion/Empresas/Proyecciones/Create', [
+            'empresa' => $empresa,
+        ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(Request $request, Empresa $empresa)
     {
-        //
-    }
+        // TODO: Implement projection logic
+        // 1. Validate historical data (12 months)
+        // 2. Save historical data
+        // 3. Calculate projections (Least Squares, etc.)
+        // 4. Save projected data
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(string $id)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(string $id)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, string $id)
-    {
-        //
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        return redirect()->route('empresas.proyecciones.index', $empresa->id)->with('success', 'Proyección creada con éxito (lógica pendiente).');
     }
 }
+

@@ -12,10 +12,15 @@ class CatalogoCuenta extends Model
 
     protected $table = 'catalogos_cuentas';
 
-    protected $fillable = ['empresa_id', 'codigo_cuenta', 'nombre_cuenta', 'mapeo_cuenta_sistema'];
+    protected $fillable = ['empresa_id', 'codigo_cuenta', 'nombre_cuenta', 'cuenta_base_id'];
 
     public function empresa(): BelongsTo
     {
         return $this->belongsTo(Empresa::class);
+    }
+
+    public function cuentaBase(): BelongsTo
+    {
+        return $this->belongsTo(CuentaBase::class);
     }
 }

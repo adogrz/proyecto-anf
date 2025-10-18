@@ -1,37 +1,41 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
+import CuentaNode, { type CuentaBaseNode } from '@/components/CuentaNode';
 
-// TODO: Definir la estructura jerárquica de las cuentas base
-interface CuentaBaseNode {
-    id: number;
-    codigo: string;
-    nombre: string;
-    children: CuentaBaseNode[];
-}
-
+// Definiendo la interfaz para la plantilla y el árbol de cuentas
 interface Plantilla {
     id: number;
     nombre: string;
     descripcion: string;
-    cuentas_base_tree: CuentaBaseNode[]; // Árbol de cuentas
 }
 
 interface ShowProps {
     plantilla: Plantilla;
+    cuentas_base_tree: CuentaBaseNode[];
 }
 
-export default function PlantillasCatalogoShow({ plantilla }: ShowProps) {
+export default function PlantillasCatalogoShow({ plantilla, cuentas_base_tree = [] }: ShowProps) {
     return (
         <AppLayout>
             <Head title={`Ver Plantilla: ${plantilla.nombre}`} />
-            <div className="container mx-auto py-8">
-                <h1 className="text-2xl font-bold mb-6">{`Detalle de Plantilla: ${plantilla.nombre}`}</h1>
+            <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold">{plantilla.nombre}</h1>
+                    <p className="text-gray-600 mt-1">{plantilla.descripcion}</p>
+                </div>
                 
-                {/* Aquí se mostrará el árbol de cuentas base */}
-                <div className="bg-white shadow-md rounded-lg p-6">
-                    <h2 className="text-xl font-semibold mb-4">Estructura de Cuentas</h2>
-                    <p>Visualización del árbol de cuentas...</p>
+                <div className="shadow-md rounded-lg p-6">
+                    <h2 className="text-xl font-semibold mb-4 border-b pb-2">Estructura de Cuentas</h2>
+                    <div className="mt-4">
+                        {cuentas_base_tree.length > 0 ? (
+                            cuentas_base_tree.map((rootNode) => (
+                                <CuentaNode key={rootNode.id} node={rootNode} level={0} />
+                            ))
+                        ) : (
+                            <p className="text-center text-gray-500">Esta plantilla aún no tiene cuentas base asociadas.</p>
+                        )}
+                    </div>
                 </div>
             </div>
         </AppLayout>

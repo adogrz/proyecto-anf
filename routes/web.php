@@ -9,6 +9,7 @@ use App\Http\Controllers\ProyeccionesVentasController;
 use App\Http\Controllers\RatiosController;
 use App\Http\Controllers\SectoresController;
 use App\Http\Controllers\Administracion\PlantillaCatalogoController;
+use App\Http\Controllers\ImportacionController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -37,6 +38,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Gestión de Empresas y sus datos (Para 'Gerente Financiero' y 'Administrador')
     Route::resource('empresas', EmpresasController::class)->middleware('can:empresas.index');
+    Route::get('empresas/{empresa}/mapeo', [CatalogosCuentasController::class, 'showMapeoForm'])->name('empresas.mapeo.show')->middleware('can:catalogos.index');
+    Route::post('empresas/{empresa}/mapeo/import', [CatalogosCuentasController::class, 'importCatalogo'])->name('empresas.mapeo.import')->middleware('can:catalogos.index');
+    Route::put('empresas/{empresa}/mapeo', [CatalogosCuentasController::class, 'updateMapeo'])->name('empresas.mapeo.update')->middleware('can:catalogos.index');
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
 
@@ -49,6 +53,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Proyecciones (Para 'Gerente Financiero' y 'Administrador')
     Route::resource('empresas.proyecciones', ProyeccionesVentasController::class)->shallow()->middleware('can:proyecciones.index');
+
+    // Importacion
+    Route::middleware('can:estados-financieros.create')->group(function () {
+        Route::get('/importacion', [ImportacionController::class, 'create'])->name('importacion.create');
+        Route::post('/importacion', [ImportacionController::class, 'store'])->name('importacion.store');
+    });
 });
 
 require __DIR__.'/settings.php';
