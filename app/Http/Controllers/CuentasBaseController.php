@@ -49,9 +49,14 @@ class CuentasBaseController extends Controller
 
     public function show(CuentaBase $cuentaBase)
     {
+        $plantillas = PlantillaCatalogo::all();
+        $allCuentasBase = CuentaBase::all();
         $cuentaBase->load('plantillaCatalogo', 'parent', 'children');
-        return Inertia::render('Administracion/CuentasBase/Show', [
+
+        return Inertia::render('Administracion/CuentasBase/Edit', [
             'cuentaBase' => $cuentaBase,
+            'plantillas' => $plantillas,
+            'allCuentasBase' => $allCuentasBase,
         ]);
     }
 
@@ -60,6 +65,7 @@ class CuentasBaseController extends Controller
         $plantillas = PlantillaCatalogo::all();
         $allCuentasBase = CuentaBase::all();
         $cuentaBase->load('plantillaCatalogo', 'parent', 'children');
+
         return Inertia::render('Administracion/CuentasBase/Edit', [
             'cuentaBase' => $cuentaBase,
             'plantillas' => $plantillas,

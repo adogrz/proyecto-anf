@@ -6,49 +6,54 @@ use App\Imports\EstadoFinancieroImport;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
-use Maatwebsite\Excel\Validators\ValidationException;
+use App\Services\EstadoFinancieroService;
 
 class ImportacionController extends Controller
 {
-    public function create()
-    {
-        $empresas = \App\Models\Empresa::orderBy('nombre')->get();
-
-        return \Inertia\Inertia::render('Importacion/Create', [
-            'empresas' => $empresas,
-        ]);
-    }
-
-    public function store(Request $request)
+    public function previsualizar(Request $request, EstadoFinancieroService $service)
     {
         $request->validate([
             'empresa_id' => ['required', 'exists:empresas,id'],
-            'anio' => ['required', 'numeric', 'min:1900'],
-            'tipo_estado' => ['required', 'string', 'in:balance_general,estado_resultados'],
             'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv'],
         ]);
 
-        try {
-            $import = new EstadoFinancieroImport(
-                $request->input('empresa_id'),
-                $request->input('anio'),
-                $request->input('tipo_estado')
-            );
-            
-            Excel::import($import, $request->file('archivo'));
+        $resultado = $service->previsualizar(
+            $request->input('empresa_id'),
+            $request->file('archivo')->getRealPath()
+        );
 
-            return redirect()->back()->with('success', '¡Estado financiero importado con éxito!');
-        } catch (ValidationException $e) {
-            $failures = $e->failures();
-            $errorMessages = [];
-            foreach ($failures as $failure) {
-                $errorMessages[] = 'Fila ' . $failure->row() . ': ' . implode(', ', $failure->errors());
-            }
-            return redirect()->back()->with('error', 'Ocurrieron errores de validación.')->with('validation_errors', $errorMessages);
-        } catch (\Exception $e) {
-            // Log the exception message for debugging
-            logger()->error($e->getMessage());
-            return redirect()->back()->with('error', 'Ocurrió un error durante la importación. Por favor, verifique el formato del archivo.');
+        if (!empty($resultado['errores'])) {
+            return response()->json(['errors' => $resultado['errores']], 422);
         }
+
+        return response()->json($resultado['datos']);
+    }
+
+    public function guardarEstadoFinanciero(Request $request, EstadoFinancieroService $service)
+    {
+        $validated = $request->validate([
+            'empresa_id' => 'required|exists:empresas,id',
+            'anio' => 'required|numeric',
+            'tipo_estado' => 'required|string',
+            'detalles' => 'required|array',
+            'detalles.*.catalogo_cuenta_id' => 'required|exists:catalogos_cuentas,id',
+            'detalles.*.valor' => 'required|numeric',
+        ]);
+
+        $service->guardarDesdePrevisualizacion($validated);
+
+        return redirect()->route('empresas.index')->with('success', 'Estado financiero importado con éxito.');
+    }
+    public function wizard()
+    {
+        $sectores = \App\Models\Sector::orderBy('nombre')->get();
+        $plantillas = \App\Models\PlantillaCatalogo::with('cuentasBase')->orderBy('nombre')->get();
+        $empresas = \App\Models\Empresa::orderBy('nombre')->get();
+
+        return \Inertia\Inertia::render('Importacion/Wizard', [
+            'sectores' => $sectores,
+            'plantillas' => $plantillas,
+            'empresas' => $empresas,
+        ]);
     }
 }

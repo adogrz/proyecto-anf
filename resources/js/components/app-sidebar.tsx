@@ -86,7 +86,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
         },
         {
             title: "Importación",
-            href: route("importacion.create"),
+            href: route("importacion.wizard"),
             icon: FileUp,
             permission: "estados-financieros.create",
         },
@@ -125,17 +125,17 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 },
                 {
                     title: "Catálogos Contables",
-                    href: route("empresas.catalogos.index", { empresa: 1 }),
+                    href: route("empresas.index"),
                     permission: "catalogos.index",
                 },
                 {
                     title: "Estados Financieros",
-                    href: route("empresas.estados-financieros.index", { empresa: 1 }),
+                    href: route("empresas.index"),
                     permission: "estados-financieros.index",
                 },
                 {
                     title: "Proyecciones",
-                    href: route("empresas.proyecciones.index", { empresa: 1 }),
+                    href: route("empresas.index"),
                     permission: "proyecciones.index",
                 },
             ],

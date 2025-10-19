@@ -45,3 +45,40 @@ export interface User {
     updated_at: string;
     [key: string]: unknown; // This allows for additional properties...
 }
+
+export interface Sector {
+    id: number;
+    nombre: string;
+}
+
+export interface PlantillaCatalogo {
+    id: number;
+    nombre: string;
+    cuentasBase?: CuentaBase[];
+}
+
+export interface CuentaBase {
+    id: number;
+    plantilla_catalogo_id: number;
+    parent_id: number | null;
+    codigo: string;
+    nombre: string;
+    tipo_cuenta: 'AGRUPACION' | 'DETALLE';
+    naturaleza: 'DEUDORA' | 'ACREEDORA';
+}
+
+export interface Empresa {
+    id: number;
+    nombre: string;
+    sector_id: number;
+    plantilla_catalogo_id: number;
+}
+
+export interface CatalogoCuenta {
+    id: number;
+    empresa_id: number;
+    codigo_cuenta: string;
+    nombre_cuenta: string;
+    cuenta_base_id: number | null;
+    cuentaBase?: { nombre: string; };
+}

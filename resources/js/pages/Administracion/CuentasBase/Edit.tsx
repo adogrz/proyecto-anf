@@ -27,13 +27,32 @@ interface EditProps {
 }
 
 export default function Edit({ plantillas, allCuentasBase, cuentaBase }: EditProps) {
+    // If cuentaBase is null or undefined, render an error or loading state
+    if (!cuentaBase) {
+        return (
+            <AppLayout>
+                <Head title="Error" />
+                <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Error al cargar la cuenta base</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p>No se pudo cargar la información de la cuenta base. Por favor, intente de nuevo.</p>
+                        </CardContent>
+                    </Card>
+                </div>
+            </AppLayout>
+        );
+    }
+
     const { data, setData, put, processing, errors } = useForm({
-        plantilla_catalogo_id: cuentaBase.plantilla_catalogo_id.toString(),
+        plantilla_catalogo_id: cuentaBase?.plantilla_catalogo_id ? String(cuentaBase.plantilla_catalogo_id) : '',
         codigo: cuentaBase.codigo,
         nombre: cuentaBase.nombre,
         tipo_cuenta: cuentaBase.tipo_cuenta,
         naturaleza: cuentaBase.naturaleza,
-        parent_id: cuentaBase.parent?.id?.toString() || '',
+        parent_id: cuentaBase.parent?.id ? String(cuentaBase.parent.id) : '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -133,7 +152,7 @@ export default function Edit({ plantillas, allCuentasBase, cuentaBase }: EditPro
                                 <Label htmlFor="parent_id">Cuenta Padre (Opcional)</Label>
                                 <Select
                                     onValueChange={(value) => setData('parent_id', value === '' ? null : value)}
-                                    value={data.parent_id?.toString() || ''}
+                                    value={data.parent_id}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Selecciona una cuenta padre" />

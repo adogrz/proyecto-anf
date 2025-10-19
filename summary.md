@@ -97,3 +97,65 @@ Para dar soporte a la nueva arquitectura del backend, se definieron las siguient
     *   `Create.tsx`: Formulario para crear una nueva plantilla de catálogo.
     *   `Edit.tsx`: Formulario para editar el nombre y la descripción de una plantilla existente.
     *   `Show.tsx`: Vista de detalle para visualizar la estructura jerárquica (en formato de árbol) de las cuentas base que componen una plantilla específica.
+
+## Gestión de Catálogos y Cuentas Base
+
+
+
+*   **Controlador `CatalogosCuentasController`:** Se implementó la funcionalidad CRUD completa para la gestión de catálogos de cuentas de empresa, incluyendo la adaptación del método `index` para operar en el contexto de una empresa específica.
+
+*   **Controlador `CuentasBaseController`:** Se implementó la funcionalidad CRUD completa para la gestión de cuentas base. Se ajustaron los métodos `index`, `create` y `edit` para asegurar que todas las cuentas base y plantillas de catálogo necesarias se envíen al frontend, facilitando la selección de cuentas padre y plantillas.
+
+*   **Frontend de Cuentas Base (`resources/js/Pages/Administracion/CuentasBase/`):**
+
+    *   **`columns.tsx`:** Se extendió para incluir columnas de selección y acciones (editar/eliminar), y para mostrar el nombre de la plantilla de catálogo y la cuenta padre asociada.
+
+    *   **`Index.tsx`:** Se actualizó para mostrar todas las cuentas base en una tabla única, con capacidades de filtrado por plantilla de catálogo, un botón para crear nuevas cuentas y un marcador de posición para la eliminación masiva. Se corrigió un error relacionado con el uso de cadenas vacías en los `SelectItem` de los componentes `Select`.
+
+    *   **`Create.tsx`:** Se creó un formulario para la creación de nuevas cuentas base, permitiendo la selección de la plantilla de catálogo y una cuenta padre opcional. Se corrigió un error relacionado con el uso de cadenas vacías en los `SelectItem`.
+
+    *   **`Edit.tsx`:** Se creó un formulario para la edición de cuentas base existentes, precargando los datos y permitiendo la actualización de la plantilla de catálogo y la cuenta padre. Se corrigió un error relacionado con el uso de cadenas vacías en los `SelectItem`.
+
+
+
+## Sesión de Asistente de Importación y Refactorización
+
+
+
+En esta sesión se abordó la necesidad de un flujo de importación de datos más robusto y amigable para el usuario, y se refactorizó el código para mejorar su encapsulamiento y mantenibilidad.
+
+
+
+*   **Asistente de Importación (Wizard):**
+
+    *   Se diseñó e implementó un asistente de 4 pasos en React (`Importacion/Wizard.tsx`) que guía al usuario a través de todo el proceso de configuración inicial.
+
+    *   **Paso 1:** Permite seleccionar una empresa existente o crear una nueva.
+
+    *   **Paso 2:** Implementa la carga del catálogo de cuentas del usuario, con una función de **auto-mapeo** que sugiere las correspondencias con las cuentas base del sistema.
+
+    *   **Paso 3:** Permite la carga del estado financiero (Balance o E. de Resultados), validando en tiempo real cada cuenta contra el catálogo recién mapeado y mostrando errores claros.
+
+    *   **Paso 4:** Presenta una previsualización de los datos interpretados antes de la confirmación final.
+
+
+
+*   **Refactorización a Capa de Servicios:**
+
+    *   Se crearon dos nuevas clases de servicio: `EstadoFinancieroService` y `CatalogoService`.
+
+    *   Se movió toda la lógica de negocio (procesamiento de archivos, validación, acceso a base de datos) de los controladores `ImportacionController` y `CatalogosCuentasController` a estos servicios.
+
+    *   Los controladores ahora son más ligeros y solo se encargan de la gestión de peticiones y respuestas HTTP.
+
+    *   Se corrigieron múltiples errores en los servicios, incluyendo errores de sintaxis y la implementación de una lectura de archivos Excel más robusta (basada en cabeceras en lugar de índices).
+
+
+
+*   **Implementación de CRUDs y Rutas:**
+
+    *   Se implementó la interfaz de usuario (vistas `Index`, `Create`, `Edit`) para el CRUD de `CatalogoCuenta`, permitiendo la gestión manual de las cuentas de una empresa.
+
+    *   Se verificó que el CRUD de `PlantillaCatalogo` estuviera completo.
+
+    *   Se ajustaron las rutas y la barra de navegación lateral para enlazar correctamente a los nuevos módulos y se corrigieron permisos faltantes en el seeder para asegurar su visibilidad.

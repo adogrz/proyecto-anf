@@ -38,9 +38,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Gestión de Empresas y sus datos (Para 'Gerente Financiero' y 'Administrador')
     Route::resource('empresas', EmpresasController::class)->middleware('can:empresas.index');
-    Route::get('empresas/{empresa}/mapeo', [CatalogosCuentasController::class, 'showMapeoForm'])->name('empresas.mapeo.show')->middleware('can:catalogos.index');
-    Route::post('empresas/{empresa}/mapeo/import', [CatalogosCuentasController::class, 'importCatalogo'])->name('empresas.mapeo.import')->middleware('can:catalogos.index');
-    Route::put('empresas/{empresa}/mapeo', [CatalogosCuentasController::class, 'updateMapeo'])->name('empresas.mapeo.update')->middleware('can:catalogos.index');
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
 
@@ -54,10 +51,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Proyecciones (Para 'Gerente Financiero' y 'Administrador')
     Route::resource('empresas.proyecciones', ProyeccionesVentasController::class)->shallow()->middleware('can:proyecciones.index');
 
-    // Importacion
     Route::middleware('can:estados-financieros.create')->group(function () {
-        Route::get('/importacion', [ImportacionController::class, 'create'])->name('importacion.create');
-        Route::post('/importacion', [ImportacionController::class, 'store'])->name('importacion.store');
+        Route::get('/importacion/wizard', [ImportacionController::class, 'wizard'])->name('importacion.wizard');
+        Route::post('/importacion/automap', [CatalogosCuentasController::class, 'automap'])->name('importacion.automap');
+        Route::post('/importacion/guardar-mapeo', [CatalogosCuentasController::class, 'guardarMapeo'])->name('importacion.guardarMapeo');
+        Route::post('/importacion/previsualizar', [ImportacionController::class, 'previsualizar'])->name('importacion.previsualizar');
+        Route::post('/importacion/guardar-estado-financiero', [ImportacionController::class, 'guardarEstadoFinanciero'])->name('importacion.guardarEstadoFinanciero');
     });
 });
 

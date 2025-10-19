@@ -32,9 +32,10 @@ class EmpresasController extends Controller
             'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
         ]);
 
-        Empresa::create($request->all());
+        $empresa = Empresa::create($request->all());
 
-        return redirect()->route('empresas.index')->with('success', 'Empresa creada con éxito.');
+        // Redirect back with the newly created company object flashed to the session
+        return redirect()->back()->with('success', 'Empresa creada con éxito.')->with('empresa', $empresa);
     }
 
     public function show(Empresa $empresa)

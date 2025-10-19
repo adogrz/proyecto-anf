@@ -23,7 +23,7 @@ class CatalogoBaseSeeder extends Seeder
                 'descripcion' => 'Catálogo contable base basado en la nomenclatura estándar de El Salvador.',
             ]);
 
-            $filePath = base_path('catalogo.txt');
+            $filePath = base_path('catalogo.csv');
             $lines = File::lines($filePath);
             $codeToIdMap = [];
 
@@ -31,15 +31,19 @@ class CatalogoBaseSeeder extends Seeder
                 $line = trim($line);
                 if (empty($line)) continue;
 
-                preg_match('/^([\d\.]+R?)\s+(.*)$/', $line, $matches);
-                if (count($matches) !== 3) continue;
+                $data = str_getcsv($line);
 
-                $codigo = $matches[1];
-                $nombre = trim($matches[2]);
+                if (count($data) !== 2) {
+                    $this->command->warn("Línea con formato incorrecto en catalogo.csv y omitida: {$line}");
+                    continue;
+                }
+
+                $codigo = $data[0];
+                $nombre = trim($data[1]);
 
                 // Generic duplicate check
                 if (isset($codeToIdMap[$codigo])) {
-                    $this->command->warn("Código duplicado encontrado en catalogo.txt y omitido: [{$codigo}] {$nombre}");
+                    $this->command->warn("Código duplicado encontrado en el catálogo y omitido: [{$codigo}] {$nombre}");
                     continue;
                 }
 

@@ -24,6 +24,7 @@ export interface CuentaBase {
         nombre: string;
     };
     parent?: {
+        id: number;
         nombre: string;
     };
 }

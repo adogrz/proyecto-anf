@@ -7,59 +7,13 @@ use App\Models\CatalogoCuenta;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Imports\CatalogoImport;
-use Maatwebsite\Excel\Facades\Excel;
+use App\Services\CatalogoService;
 
 class CatalogosCuentasController extends Controller
 {
-    public function showMapeoForm(Empresa $empresa)
-    {
-        if (!$empresa->plantillaCatalogo) {
-            return redirect()->route('empresas.index')->with('error', 'La empresa no tiene una plantilla de catálogo asignada. Asigne una antes de mapear cuentas.');
-        }
-
-        $empresa->load('plantillaCatalogo.cuentasBase', 'catalogoCuentas');
-
-        return Inertia::render('Administracion/Empresas/Mapeo', [
-            'empresa' => $empresa,
-            'cuentasBase' => $empresa->plantillaCatalogo->cuentasBase->where('tipo_cuenta', 'DETALLE'),
-            'catalogoEmpresa' => $empresa->catalogoCuentas,
-        ]);
-    }
-
-    public function importCatalogo(Request $request, Empresa $empresa)
-    {
-        $request->validate([
-            'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-        ]);
-
-        CatalogoCuenta::where('empresa_id', $empresa->id)->delete();
-
-        Excel::import(new CatalogoImport($empresa->id), $request->file('archivo'));
-
-        return redirect()->route('empresas.mapeo.show', $empresa->id)->with('success', 'Catálogo importado. Listo para mapear.');
-    }
-
-    public function updateMapeo(Request $request, Empresa $empresa)
-    {
-        $request->validate([
-            'mapeos' => 'required|array',
-            'mapeos.*.id' => 'required|exists:catalogos_cuentas,id',
-            'mapeos.*.cuenta_base_id' => 'required|exists:cuentas_base,id',
-        ]);
-
-        foreach ($request->mapeos as $mapeo) {
-            CatalogoCuenta::where('id', $mapeo['id'])
-                          ->where('empresa_id', $empresa->id)
-                          ->update(['cuenta_base_id' => $mapeo['cuenta_base_id']]);
-        }
-
-        return redirect()->route('empresas.mapeo.show', $empresa->id)->with('success', 'Mapeo de cuentas actualizado con éxito.');
-    }
-
     public function index(Empresa $empresa)
     {
         $catalogosCuentas = $empresa->catalogoCuentas()->with('cuentaBase')->get();
-
         return Inertia::render('Administracion/Empresas/Catalogos/Index', [
             'empresa' => $empresa,
             'catalogosCuentas' => $catalogosCuentas,
@@ -69,7 +23,6 @@ class CatalogosCuentasController extends Controller
     public function create(Empresa $empresa)
     {
         $cuentasBase = $empresa->plantillaCatalogo->cuentasBase()->where('tipo_cuenta', 'DETALLE')->get();
-
         return Inertia::render('Administracion/Empresas/Catalogos/Create', [
             'empresa' => $empresa,
             'cuentasBase' => $cuentasBase,
@@ -84,21 +37,15 @@ class CatalogosCuentasController extends Controller
             'cuenta_base_id' => 'nullable|exists:cuentas_base,id',
         ]);
 
-        $empresa->catalogoCuentas()->create([
-            'codigo_cuenta' => $request->codigo_cuenta,
-            'nombre_cuenta' => $request->nombre_cuenta,
-            'cuenta_base_id' => $request->cuenta_base_id,
-        ]);
+        $empresa->catalogoCuentas()->create($request->all());
 
-        return redirect()->route('empresas.catalogos.index', $empresa->id)
-                         ->with('success', 'Cuenta de catálogo creada con éxito.');
+        return redirect()->route('empresas.catalogos.index', $empresa->id)->with('success', 'Cuenta creada.');
     }
 
     public function show(CatalogoCuenta $catalogo)
     {
-        $catalogo->load('cuentaBase');
         return Inertia::render('Administracion/Empresas/Catalogos/Show', [
-            'catalogoCuenta' => $catalogo,
+            'catalogoCuenta' => $catalogo->load('cuentaBase'),
         ]);
     }
 
@@ -106,11 +53,10 @@ class CatalogosCuentasController extends Controller
     {
         $empresa = $catalogo->empresa;
         $cuentasBase = $empresa->plantillaCatalogo->cuentasBase()->where('tipo_cuenta', 'DETALLE')->get();
-
         return Inertia::render('Administracion/Empresas/Catalogos/Edit', [
-            'empresa' => $empresa,
-            'catalogoCuenta' => $catalogo->load('cuentaBase'),
+            'catalogoCuenta' => $catalogo,
             'cuentasBase' => $cuentasBase,
+            'empresa' => $empresa,
         ]);
     }
 
@@ -122,14 +68,39 @@ class CatalogosCuentasController extends Controller
             'cuenta_base_id' => 'nullable|exists:cuentas_base,id',
         ]);
 
-        $catalogo->update([
-            'codigo_cuenta' => $request->codigo_cuenta,
-            'nombre_cuenta' => $request->nombre_cuenta,
-            'cuenta_base_id' => $request->cuenta_base_id,
+        $catalogo->update($request->all());
+
+        return redirect()->route('empresas.catalogos.index', $catalogo->empresa_id)->with('success', 'Cuenta actualizada.');
+    }
+
+    public function automap(Request $request, CatalogoService $service)
+    {
+        $request->validate([
+            'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'plantilla_catalogo_id' => ['required', 'exists:plantillas_catalogo,id'],
         ]);
 
-        return redirect()->route('empresas.catalogos.index', $catalogo->empresa_id)
-                         ->with('success', 'Cuenta de catálogo actualizada con éxito.');
+        $resultado = $service->procesarAutomap(
+            $request->file('archivo')->getRealPath(),
+            $request->input('plantilla_catalogo_id')
+        );
+
+        return response()->json($resultado);
+    }
+
+    public function guardarMapeo(Request $request, CatalogoService $service)
+    {
+        $validated = $request->validate([
+            'empresa_id' => 'required|exists:empresas,id',
+            'cuentas' => 'required|array',
+            'cuentas.*.codigo_cuenta' => 'required|string',
+            'cuentas.*.nombre_cuenta' => 'required|string',
+            'cuentas.*.cuenta_base_id' => 'nullable|exists:cuentas_base,id',
+        ]);
+
+        $service->guardarMapeo($validated);
+
+        return response()->json(['message' => 'Mapeo guardado con éxito.']);
     }
 
     public function destroy(CatalogoCuenta $catalogo)

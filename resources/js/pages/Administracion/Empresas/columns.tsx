@@ -1,6 +1,6 @@
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal, Pencil, Trash2, Map, FileText, Eye } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Pencil, Trash2, FileText, Eye, BookText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -88,7 +88,7 @@ export const columns: ColumnDef<Empresa>[] = [
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-                <Link href={route('empresas.mapeo.show', empresa.id)}><Map className="mr-2 h-4 w-4" /> Mapear Catálogo</Link>
+                <Link href={route('empresas.catalogos.index', { empresa: empresa.id })}><BookText className="mr-2 h-4 w-4" /> Catálogo de Cuentas</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
                 <Link href={route('empresas.estados-financieros.index', { empresa: empresa.id })}><FileText className="mr-2 h-4 w-4" /> Estados Financieros</Link>
