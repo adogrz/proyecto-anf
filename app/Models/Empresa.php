@@ -38,8 +38,13 @@ class Empresa extends Model
         return $this->hasMany(EstadoFinanciero::class);
     }
 
-    public function proyeccionesVentas(): HasMany
+    public function datosVentaHistoricos(): HasMany
     {
-        return $this->hasMany(ProyeccionVenta::class);
+        return $this->hasMany(DatoVentaHistorico::class);
+    }
+
+    public function ejecucionesProyecciones(): HasMany
+    {
+        return $this->hasMany(EjecucionProyeccion::class);
     }
 }
