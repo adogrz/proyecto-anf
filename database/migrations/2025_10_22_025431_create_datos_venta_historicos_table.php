@@ -11,16 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('proyecciones_ventas', function (Blueprint $table) {
+        Schema::create('datos_venta_historicos', function (Blueprint $table) {
             $table->id();
             $table->foreignId('empresa_id')->constrained('empresas')->onDelete('cascade');
             $table->year('anio');
             $table->unsignedTinyInteger('mes');
-            $table->decimal('monto_ventas', 15, 2);
-            $table->enum('tipo', ['historico', 'proyectado_minimos_cuadrados', 'proyectado_porcentual', 'proyectado_absoluto']);
+            $table->decimal('monto', 15, 2);
+            $table->boolean('es_generado_sistema')->default(false);
+            $table->string('metodo_generacion')->nullable();
             $table->timestamps();
 
-            $table->unique(['empresa_id', 'anio', 'mes', 'tipo']);
+            $table->unique(['empresa_id', 'anio', 'mes']);
         });
     }
 
@@ -29,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('proyecciones_ventas');
+        Schema::dropIfExists('datos_venta_historicos');
     }
 };
