@@ -17,8 +17,6 @@ return new class extends Migration
             $table->year('anio');
             $table->unsignedTinyInteger('mes');
             $table->decimal('monto', 15, 2);
-            $table->boolean('es_generado_sistema')->default(false);
-            $table->string('metodo_generacion')->nullable();
             $table->timestamps();
 
             $table->unique(['empresa_id', 'anio', 'mes']);

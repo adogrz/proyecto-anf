@@ -15,12 +15,6 @@ class DatoVentaHistorico extends Model
         'anio',
         'mes',
         'monto',
-        'es_generado_sistema',
-        'metodo_generacion',
-    ];
-
-    protected $casts = [
-        'es_generado_sistema' => 'boolean',
     ];
 
     public function empresa(): BelongsTo
