@@ -6,6 +6,7 @@ use App\Imports\EstadoFinancieroImport;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 
+use App\Services\CatalogoService;
 use App\Services\EstadoFinancieroService;
 
 class ImportacionController extends Controller
@@ -15,6 +16,8 @@ class ImportacionController extends Controller
         $request->validate([
             'empresa_id' => ['required', 'exists:empresas,id'],
             'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ], [
+            'archivo.mimes' => 'El archivo debe ser de tipo Excel (.xlsx, .xls) o CSV (.csv).',
         ]);
 
         $resultado = $service->previsualizar(
@@ -55,5 +58,32 @@ class ImportacionController extends Controller
             'plantillas' => $plantillas,
             'empresas' => $empresas,
         ]);
+    }
+
+    public function automap(Request $request, CatalogoService $service)
+    {
+        $request->validate([
+            'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'plantilla_catalogo_id' => ['required', 'exists:plantillas_catalogo,id'],
+        ], [
+            'archivo.mimes' => 'El archivo debe ser de tipo Excel (.xlsx, .xls) o CSV (.csv).',
+        ]);
+
+        return response()->json($resultado);
+    }
+
+    public function guardarMapeo(Request $request, CatalogoService $service)
+    {
+        $validated = $request->validate([
+            'empresa_id' => 'required|exists:empresas,id',
+            'cuentas' => 'required|array',
+            'cuentas.*.codigo_cuenta' => 'required|string',
+            'cuentas.*.nombre_cuenta' => 'required|string',
+            'cuentas.*.cuenta_base_id' => 'nullable|exists:cuentas_base,id',
+        ]);
+
+        $service->guardarMapeo($validated);
+
+        return response()->json(['message' => 'Mapeo guardado con éxito.']);
     }
 }
