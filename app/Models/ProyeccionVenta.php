@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Policies\ProyeccionVentasPolicy;
+use Illuminate\Database\Eloquent\Attributes\UsePolicy;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+#[UsePolicy(ProyeccionVentasPolicy::class)]
 class ProyeccionVenta extends Model
 {
     public const METODO_GENERACION_MINIMOS_CUADRADOS = 'MINIMOS_CUADRADOS';

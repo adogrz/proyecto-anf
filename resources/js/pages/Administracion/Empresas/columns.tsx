@@ -116,8 +116,8 @@ export const columns: ColumnDef<Empresa>[] = [
                                     empresa.id,
                                 )}
                             >
-                                <TrendingUp className="mr-2 h-4 w-4" />{' '}
-                                Proyección de Ventas
+                                <TrendingUp className="mr-2 h-4 w-4" /> Gestión
+                                de Datos Históricos
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
