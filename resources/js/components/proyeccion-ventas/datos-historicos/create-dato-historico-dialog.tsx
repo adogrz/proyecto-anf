@@ -82,10 +82,10 @@ export function CreateDatoHistoricoDialog({
             <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Añadir Dato Histórico</DialogTitle>
+                    <DialogTitle>Añadir Dato de Venta Histórico</DialogTitle>
                     <DialogDescription>
                         {hasData && nextPeriod
-                            ? 'Añade el siguiente período en la cadena de datos históricos.'
+                            ? 'Añade el siguiente período para los datos de venta históricos.'
                             : 'Esta será tu primera entrada de datos históricos. Puedes elegir el período de inicio.'}
                     </DialogDescription>
                 </DialogHeader>

@@ -57,6 +57,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/proyecciones/{empresa}/next-period', [ProyeccionVentasController::class, 'getNextPeriod'])->name('proyecciones.next-period');
         Route::post('/proyecciones/{empresa}/datos-historicos', [ProyeccionVentasController::class, 'store'])->name('proyecciones.datos-historicos.store');
         Route::put('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'update'])->name('proyecciones.datos-historicos.update');
+        Route::delete('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'destroy'])->name('proyecciones.datos-historicos.destroy');
     });
 
     Route::middleware('can:estados-financieros.create')->group(function () {

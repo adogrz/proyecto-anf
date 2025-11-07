@@ -14,6 +14,7 @@ import {
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
 import { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { DeleteDatoHistoricoDialog } from './delete-dato-historico-dialog';
 import { EditDatoHistoricoDialog } from './edit-dato-historico-dialog';
 
 const MESES = [
@@ -39,6 +40,7 @@ interface ColumnOptions {
     };
     onEdit?: () => void;
     onDelete?: (id: number) => void;
+    lastRowId?: number;
 }
 
 export const getColumns = ({
@@ -46,6 +48,7 @@ export const getColumns = ({
     permissions,
     onEdit,
     onDelete,
+    lastRowId,
 }: ColumnOptions): ColumnDef<DatoVentaHistorico>[] => [
     {
         id: 'select',
@@ -115,6 +118,7 @@ export const getColumns = ({
         id: 'actions',
         cell: ({ row }) => {
             const dato = row.original;
+            const isLast = lastRowId === dato.id;
 
             return (
                 <DropdownMenu>
@@ -142,14 +146,24 @@ export const getColumns = ({
                         {permissions.canDelete && (
                             <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                    className="text-red-600"
-                                    onClick={() =>
-                                        onDelete && onDelete(dato.id)
+                                <DeleteDatoHistoricoDialog
+                                    dato={dato}
+                                    empresaId={empresaId}
+                                    onSuccess={
+                                        onDelete
+                                            ? () => onDelete(dato.id)
+                                            : undefined
                                     }
                                 >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                                </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        className={`$${''}`}
+                                        disabled={!isLast}
+                                        onSelect={(e) => e.preventDefault()}
+                                    >
+                                        <Trash2 className="mr-2 h-4 w-4" />{' '}
+                                        Eliminar
+                                    </DropdownMenuItem>
+                                </DeleteDatoHistoricoDialog>
                             </>
                         )}
                     </DropdownMenuContent>

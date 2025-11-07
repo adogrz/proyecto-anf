@@ -38,6 +38,14 @@ export default function ProyeccionesShow({
         nextPeriod: { mes: number; anio: number } | null;
     }>({ hasData: false, nextPeriod: null });
 
+    // Nuevo: estado local para la tabla
+    const [rows, setRows] = useState<DatoVentaHistorico[]>(datosVentaHistorico);
+
+    // Mantener sincronizado si Inertia rehidrata con nuevos props
+    useEffect(() => {
+        setRows(datosVentaHistorico);
+    }, [datosVentaHistorico]);
+
     const fetchNextPeriod = useCallback(() => {
         axios
             .get(`/proyecciones/${empresaId}/next-period`)
@@ -53,6 +61,18 @@ export default function ProyeccionesShow({
         // Obtener el próximo período al cargar el componente
         fetchNextPeriod();
     }, [fetchNextPeriod]);
+
+    // Callback cuando se elimina una fila (actualiza tabla y próximo período)
+    const handleDeleted = (id: number) => {
+        setRows((prev) => prev.filter((r) => r.id !== id));
+        fetchNextPeriod();
+    };
+
+    // Id del último registro (por año/mes ascendente)
+    const lastRowId = rows
+        .slice()
+        .sort((a, b) => (a.anio === b.anio ? a.mes - b.mes : a.anio - b.anio))
+        .at(-1)?.id;
 
     return (
         <AppLayout breadcrumbs={BREADCRUMBS}>
@@ -89,8 +109,10 @@ export default function ProyeccionesShow({
                             canDelete: permissions.canDelete,
                         },
                         onEdit: fetchNextPeriod,
+                        onDelete: handleDeleted,
+                        lastRowId,
                     })}
-                    data={datosVentaHistorico}
+                    data={rows}
                     filterColumn="anio"
                     filterPlaceholder="Filtrar por año..."
                 />

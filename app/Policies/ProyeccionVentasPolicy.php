@@ -48,6 +48,14 @@ class ProyeccionVentasPolicy
     }
 
     /**
+     * Helper opcional para UI (no requerido por Laravel): si puede eliminar en general
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $user->can('proyecciones.delete');
+    }
+
+    /**
      * Determine whether the user can restore the model.
      */
     public function restore(User $user, ProyeccionVenta $proyeccionVenta): bool

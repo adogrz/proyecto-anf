@@ -88,7 +88,7 @@ export function EditDatoHistoricoDialog({
             <DialogTrigger asChild>{children}</DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                    <DialogTitle>Editar Dato Histórico</DialogTitle>
+                    <DialogTitle>Editar Dato de Venta Histórico</DialogTitle>
                     <DialogDescription>
                         Editando el dato de{' '}
                         <strong>

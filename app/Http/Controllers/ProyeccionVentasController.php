@@ -156,6 +156,41 @@ class ProyeccionVentasController extends Controller
     }
 
     /**
+     * Eliminar un dato histórico.
+     * Solo se puede eliminar el último dato de la cadena.
+     */
+    public function destroy(Request $request, $empresa, $id)
+    {
+        // Autorizar acción delete sobre ProyeccionVenta
+        $this->authorize('delete', new ProyeccionVenta());
+
+        // Buscar el dato a eliminar (de la empresa)
+        $dato = DatoVentaHistorico::query()
+            ->byEmpresa($empresa)
+            ->findOrFail($id);
+
+        // Obtener el último dato de la cadena
+        $ultimo = DatoVentaHistorico::query()
+            ->byEmpresa($empresa)
+            ->orderBy('anio', 'desc')
+            ->orderBy('mes', 'desc')
+            ->first();
+
+        // Validar que el dato seleccionado es el último
+        if (!$ultimo || $ultimo->id !== $dato->id) {
+            return back()->withErrors([
+                'delete' => 'Solo puedes eliminar el último dato de la cadena.',
+            ]);
+        }
+
+        // Eliminar
+        $dato->delete();
+
+        return redirect()->route('dashboard.proyecciones', $empresa)
+            ->with('success', 'Dato histórico eliminado correctamente.');
+    }
+
+    /**
      * Obtener el nombre del mes.
      */
     private function getMesNombre($mes): string
