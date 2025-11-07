@@ -58,6 +58,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/proyecciones/{empresa}/datos-historicos', [ProyeccionVentasController::class, 'store'])->name('proyecciones.datos-historicos.store');
         Route::put('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'update'])->name('proyecciones.datos-historicos.update');
         Route::delete('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'destroy'])->name('proyecciones.datos-historicos.destroy');
+
+        // Ruta para descargar la plantilla CSV (genérica)
+        Route::get('/proyecciones/plantilla/descargar', [ProyeccionVentasController::class, 'descargarPlantilla'])
+            ->name('proyecciones.plantilla.descargar');
     });
 
     Route::middleware('can:estados-financieros.create')->group(function () {

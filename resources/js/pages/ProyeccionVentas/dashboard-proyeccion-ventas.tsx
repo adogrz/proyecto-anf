@@ -9,7 +9,7 @@ import { BreadcrumbItem } from '@/types';
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { CirclePlus } from 'lucide-react';
+import { CirclePlus, Download } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 const BREADCRUMBS: BreadcrumbItem[] = [
@@ -74,6 +74,11 @@ export default function ProyeccionesShow({
         .sort((a, b) => (a.anio === b.anio ? a.mes - b.mes : a.anio - b.anio))
         .at(-1)?.id;
 
+    const handleDescargarPlantilla = () => {
+        // Navegar a la ruta que dispara la descarga
+        window.location.href = '/proyecciones/plantilla/descargar';
+    };
+
     return (
         <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={pageTitle} />
@@ -83,7 +88,15 @@ export default function ProyeccionesShow({
                     <h2 className="text-2xl font-bold tracking-tight">
                         {pageTitle}
                     </h2>
-                    <div>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="secondary"
+                            className="cursor-pointer space-x-1"
+                            onClick={handleDescargarPlantilla}
+                        >
+                            <Download />
+                            <span>Descargar plantilla CSV</span>
+                        </Button>
                         {permissions.canCreate && (
                             <CreateDatoHistoricoDialog
                                 empresaId={empresaId}

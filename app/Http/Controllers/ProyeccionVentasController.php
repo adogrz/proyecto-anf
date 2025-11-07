@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProyeccionVentasController extends Controller
 {
@@ -188,6 +189,34 @@ class ProyeccionVentasController extends Controller
 
         return redirect()->route('dashboard.proyecciones', $empresa)
             ->with('success', 'Dato histórico eliminado correctamente.');
+    }
+
+    /**
+     * Genera y transmite una plantilla CSV para la carga de datos.
+     */
+    public function descargarPlantilla(): StreamedResponse
+    {
+        $this->authorize('create', ProyeccionVenta::class);
+
+        $fileName = 'plantilla_ventas_historicas.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ];
+
+        // Columnas de la plantilla
+        $columnas = ['Anio', 'Mes', 'Monto_Venta'];
+
+        $callback = function () use ($columnas) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $columnas, ';');
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 
     /**
