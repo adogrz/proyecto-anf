@@ -52,6 +52,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:proyecciones.index')->group(function () {
         Route::get('/proyecciones/{empresa}', [ProyeccionVentasController::class, 'dashboard'])->name('dashboard.proyecciones');
         Route::post('/proyecciones/{empresa}/generar', [ProyeccionVentasController::class, 'generar'])->name('proyecciones.generar');
+
+        // Gestión de datos históricos
+        Route::get('/proyecciones/{empresa}/next-period', [ProyeccionVentasController::class, 'getNextPeriod'])->name('proyecciones.next-period');
+        Route::post('/proyecciones/{empresa}/datos-historicos', [ProyeccionVentasController::class, 'store'])->name('proyecciones.datos-historicos.store');
     });
 
     Route::middleware('can:estados-financieros.create')->group(function () {

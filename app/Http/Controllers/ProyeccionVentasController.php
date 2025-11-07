@@ -21,6 +21,126 @@ class ProyeccionVentasController extends Controller
     }
 
     use AuthorizesRequests;
+
+    /**
+     * Obtener el siguiente período lógico para añadir un dato histórico.
+     */
+    public function getNextPeriod(Request $request, $empresa)
+    {
+        $this->authorize('create', ProyeccionVenta::class);
+
+        $lastData = DatoVentaHistorico::query()
+            ->byEmpresa($empresa)
+            ->orderBy('anio', 'desc')
+            ->orderBy('mes', 'desc')
+            ->first();
+
+        if (!$lastData) {
+            // No hay datos históricos, el usuario puede elegir
+            return response()->json([
+                'hasData' => false,
+                'nextPeriod' => null,
+            ]);
+        }
+
+        // Calcular el siguiente período
+        $nextMes = $lastData->mes + 1;
+        $nextAnio = $lastData->anio;
+
+        if ($nextMes > 12) {
+            $nextMes = 1;
+            $nextAnio++;
+        }
+
+        return response()->json([
+            'hasData' => true,
+            'nextPeriod' => [
+                'mes' => $nextMes,
+                'anio' => $nextAnio,
+            ],
+            'lastPeriod' => [
+                'mes' => $lastData->mes,
+                'anio' => $lastData->anio,
+            ],
+        ]);
+    }
+
+    /**
+     * Almacenar un nuevo dato histórico.
+     */
+    public function store(Request $request, $empresa)
+    {
+        $this->authorize('create', ProyeccionVenta::class);
+
+        // Validar los datos
+        $validated = $request->validate([
+            'anio' => 'required|integer|min:2000|max:2100',
+            'mes' => 'required|integer|min:1|max:12',
+            'monto' => 'required|numeric|min:0',
+        ]);
+
+        // Verificar que no exista un registro con el mismo año y mes
+        $exists = DatoVentaHistorico::query()
+            ->byEmpresa($empresa)
+            ->where('anio', $validated['anio'])
+            ->where('mes', $validated['mes'])
+            ->exists();
+
+        if ($exists) {
+            return back()->withErrors([
+                'periodo' => 'Ya existe un registro para este período.',
+            ]);
+        }
+
+        // Verificar la regla de la cadena: el nuevo dato debe ser el siguiente período
+        $lastData = DatoVentaHistorico::query()
+            ->byEmpresa($empresa)
+            ->orderBy('anio', 'desc')
+            ->orderBy('mes', 'desc')
+            ->first();
+
+        if ($lastData) {
+            $expectedMes = $lastData->mes + 1;
+            $expectedAnio = $lastData->anio;
+
+            if ($expectedMes > 12) {
+                $expectedMes = 1;
+                $expectedAnio++;
+            }
+
+            if ($validated['mes'] != $expectedMes || $validated['anio'] != $expectedAnio) {
+                return back()->withErrors([
+                    'periodo' => "El siguiente período debe ser {$this->getMesNombre($expectedMes)} {$expectedAnio}.",
+                ]);
+            }
+        }
+
+        // Crear el registro
+        DatoVentaHistorico::create([
+            'empresa_id' => $empresa,
+            'anio' => $validated['anio'],
+            'mes' => $validated['mes'],
+            'monto' => $validated['monto'],
+        ]);
+
+        return redirect()->route('dashboard.proyecciones', $empresa)
+            ->with('success', 'Dato histórico añadido correctamente.');
+    }
+
+    /**
+     * Obtener el nombre del mes.
+     */
+    private function getMesNombre($mes): string
+    {
+        $meses = [
+            1 => 'Enero', 2 => 'Febrero', 3 => 'Marzo', 4 => 'Abril',
+            5 => 'Mayo', 6 => 'Junio', 7 => 'Julio', 8 => 'Agosto',
+            9 => 'Septiembre', 10 => 'Octubre', 11 => 'Noviembre', 12 => 'Diciembre',
+        ];
+
+        return $meses[$mes] ?? $mes;
+    }
+
     public function dashboard(Request $request, $empresa): Response
     {
         $this->authorize('viewAny', ProyeccionVenta::class);
@@ -36,6 +156,7 @@ class ProyeccionVentasController extends Controller
         return Inertia::render('ProyeccionVentas/dashboard-proyeccion-ventas', [
             'datosVentaHistorico' => $datosVentaHistorico,
             'permissions' => $this->getUserPermissions($user),
+            'empresaId' => $empresa,
         ]);
     }
 

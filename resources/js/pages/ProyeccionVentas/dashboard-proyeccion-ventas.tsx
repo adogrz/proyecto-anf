@@ -1,5 +1,6 @@
 'use client';
 
+import { CreateDatoHistoricoDialog } from '@/components/proyeccion-ventas/datos-historicos/create-dato-historico-dialog';
 import { columns } from '@/components/proyeccion-ventas/datos-historicos/datos-historicos-columns';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
@@ -7,7 +8,9 @@ import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
 import { Head } from '@inertiajs/react';
+import axios from 'axios';
 import { CirclePlus } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 const BREADCRUMBS: BreadcrumbItem[] = [
     { title: 'Empresas', href: '/empresas' },
@@ -16,6 +19,7 @@ const BREADCRUMBS: BreadcrumbItem[] = [
 
 interface ProyeccionesShowProps {
     datosVentaHistorico: DatoVentaHistorico[];
+    empresaId: number;
     permissions: {
         canCreate: boolean;
         canEdit: boolean;
@@ -25,9 +29,30 @@ interface ProyeccionesShowProps {
 
 export default function ProyeccionesShow({
     datosVentaHistorico,
+    empresaId,
     permissions,
 }: ProyeccionesShowProps) {
     const pageTitle = 'Gestión de Datos Históricos';
+    const [nextPeriodData, setNextPeriodData] = useState<{
+        hasData: boolean;
+        nextPeriod: { mes: number; anio: number } | null;
+    }>({ hasData: false, nextPeriod: null });
+
+    const fetchNextPeriod = useCallback(() => {
+        axios
+            .get(`/proyecciones/${empresaId}/next-period`)
+            .then((response) => {
+                setNextPeriodData(response.data);
+            })
+            .catch((error) => {
+                console.error('Error al obtener el próximo período:', error);
+            });
+    }, [empresaId]);
+
+    useEffect(() => {
+        // Obtener el próximo período al cargar el componente
+        fetchNextPeriod();
+    }, [fetchNextPeriod]);
 
     return (
         <AppLayout breadcrumbs={BREADCRUMBS}>
@@ -40,10 +65,17 @@ export default function ProyeccionesShow({
                     </h2>
                     <div>
                         {permissions.canCreate && (
-                            <Button className="cursor-pointer space-x-1">
-                                <CirclePlus />
-                                <span>Añadir Dato Manualmente</span>
-                            </Button>
+                            <CreateDatoHistoricoDialog
+                                empresaId={empresaId}
+                                nextPeriod={nextPeriodData.nextPeriod}
+                                hasData={nextPeriodData.hasData}
+                                onSuccess={fetchNextPeriod}
+                            >
+                                <Button className="cursor-pointer space-x-1">
+                                    <CirclePlus />
+                                    <span>Añadir Dato Manualmente</span>
+                                </Button>
+                            </CreateDatoHistoricoDialog>
                         )}
                     </div>
                 </div>
