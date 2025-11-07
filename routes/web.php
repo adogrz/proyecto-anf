@@ -59,6 +59,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'update'])->name('proyecciones.datos-historicos.update');
         Route::delete('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'destroy'])->name('proyecciones.datos-historicos.destroy');
 
+        // Importación CSV
+        Route::post('/proyecciones/{empresa}/importar-csv', [ProyeccionVentasController::class, 'importarCSV'])
+            ->name('proyecciones.importar-csv');
+
         // Ruta para descargar la plantilla CSV (genérica)
         Route::get('/proyecciones/plantilla/descargar', [ProyeccionVentasController::class, 'descargarPlantilla'])
             ->name('proyecciones.plantilla.descargar');

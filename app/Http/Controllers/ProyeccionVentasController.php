@@ -4,14 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\DatoVentaHistorico;
 use App\Models\ProyeccionVenta;
+use App\Services\ImportacionVentasService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ProyeccionVentasController extends Controller
 {
+    use AuthorizesRequests;
+
+    public function __construct(
+        private ImportacionVentasService $importacionService
+    ) {
+    }
+
     private function getUserPermissions($user): array
     {
         return [
@@ -20,8 +29,6 @@ class ProyeccionVentasController extends Controller
             'canDelete' => $user?->can('proyecciones.delete') ?? false,
         ];
     }
-
-    use AuthorizesRequests;
 
     /**
      * Obtener el siguiente período lógico para añadir un dato histórico.
@@ -207,16 +214,51 @@ class ProyeccionVentasController extends Controller
             'Pragma' => 'no-cache',
         ];
 
-        // Columnas de la plantilla
-        $columnas = ['Anio', 'Mes', 'Monto_Venta'];
+        $columnas = $this->importacionService->generarPlantillaCSV();
 
         $callback = function () use ($columnas) {
             $out = fopen('php://output', 'w');
+            // BOM UTF-8 para compatibilidad con Excel
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
             fputcsv($out, $columnas, ';');
             fclose($out);
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    /**
+     * Importar datos históricos desde un archivo CSV.
+     */
+    public function importarCSV(Request $request, $empresa)
+    {
+        $this->authorize('create', ProyeccionVenta::class);
+
+        // Validar request
+        $request->validate([
+            'csv_file' => 'required|file|mimes:csv,txt|max:2048',
+        ], [
+            'csv_file.required' => 'Debe seleccionar un archivo CSV.',
+            'csv_file.mimes' => 'El archivo debe ser de tipo CSV o TXT.',
+            'csv_file.max' => 'El archivo no debe superar 2MB.',
+        ]);
+
+        try {
+            [$insertadas, $actualizadas] = $this->importacionService->importarDesdeCSV(
+                $request->file('csv_file'),
+                $empresa
+            );
+
+            return redirect()->route('dashboard.proyecciones', $empresa)
+                ->with('success', "Importación exitosa: {$insertadas} filas insertadas, {$actualizadas} filas actualizadas.");
+
+        } catch (ValidationException $e) {
+            return back()->withErrors($e->errors());
+        } catch (\Exception $e) {
+            return back()->withErrors([
+                'csv_file' => 'Error interno al procesar el archivo. Por favor, intente nuevamente.',
+            ]);
+        }
     }
 
     /**
