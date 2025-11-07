@@ -128,6 +128,34 @@ class ProyeccionVentasController extends Controller
     }
 
     /**
+     * Actualizar un dato histórico existente.
+     * Solo se puede modificar el monto, no el período.
+     */
+    public function update(Request $request, $empresa, $id)
+    {
+        // Autorizar usando instancia (update requiere modelo)
+        $this->authorize('update', new ProyeccionVenta());
+
+        // Buscar el dato histórico
+        $datoHistorico = DatoVentaHistorico::query()
+            ->byEmpresa($empresa)
+            ->findOrFail($id);
+
+        // Validar solo el monto
+        $validated = $request->validate([
+            'monto' => 'required|numeric|min:0',
+        ]);
+
+        // Actualizar solo el monto
+        $datoHistorico->update([
+            'monto' => $validated['monto'],
+        ]);
+
+        return redirect()->route('dashboard.proyecciones', $empresa)
+            ->with('success', 'Dato histórico actualizado correctamente.');
+    }
+
+    /**
      * Obtener el nombre del mes.
      */
     private function getMesNombre($mes): string

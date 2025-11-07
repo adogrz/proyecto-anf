@@ -14,6 +14,7 @@ import {
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
 import { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { EditDatoHistoricoDialog } from './edit-dato-historico-dialog';
 
 const MESES = [
     'Enero',
@@ -30,7 +31,22 @@ const MESES = [
     'Diciembre',
 ];
 
-export const columns: ColumnDef<DatoVentaHistorico>[] = [
+interface ColumnOptions {
+    empresaId: number;
+    permissions: {
+        canEdit: boolean;
+        canDelete: boolean;
+    };
+    onEdit?: () => void;
+    onDelete?: (id: number) => void;
+}
+
+export const getColumns = ({
+    empresaId,
+    permissions,
+    onEdit,
+    onDelete,
+}: ColumnOptions): ColumnDef<DatoVentaHistorico>[] => [
     {
         id: 'select',
         header: ({ table }) => (
@@ -97,7 +113,9 @@ export const columns: ColumnDef<DatoVentaHistorico>[] = [
     },
     {
         id: 'actions',
-        cell: () => {
+        cell: ({ row }) => {
+            const dato = row.original;
+
             return (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -108,13 +126,32 @@ export const columns: ColumnDef<DatoVentaHistorico>[] = [
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                        <DropdownMenuItem>
-                            <Pencil className="mr-2 h-4 w-4" /> Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                        </DropdownMenuItem>
+                        {permissions.canEdit && (
+                            <EditDatoHistoricoDialog
+                                dato={dato}
+                                empresaId={empresaId}
+                                onSuccess={onEdit}
+                            >
+                                <DropdownMenuItem
+                                    onSelect={(e) => e.preventDefault()}
+                                >
+                                    <Pencil className="mr-2 h-4 w-4" /> Editar
+                                </DropdownMenuItem>
+                            </EditDatoHistoricoDialog>
+                        )}
+                        {permissions.canDelete && (
+                            <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    className="text-red-600"
+                                    onClick={() =>
+                                        onDelete && onDelete(dato.id)
+                                    }
+                                >
+                                    <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                                </DropdownMenuItem>
+                            </>
+                        )}
                     </DropdownMenuContent>
                 </DropdownMenu>
             );

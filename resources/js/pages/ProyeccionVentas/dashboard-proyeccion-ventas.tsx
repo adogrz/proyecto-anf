@@ -1,7 +1,7 @@
 'use client';
 
 import { CreateDatoHistoricoDialog } from '@/components/proyeccion-ventas/datos-historicos/create-dato-historico-dialog';
-import { columns } from '@/components/proyeccion-ventas/datos-historicos/datos-historicos-columns';
+import { getColumns } from '@/components/proyeccion-ventas/datos-historicos/datos-historicos-columns';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import AppLayout from '@/layouts/app-layout';
@@ -82,7 +82,14 @@ export default function ProyeccionesShow({
 
                 {/* Tabla de Datos de Venta Historicos */}
                 <DataTable
-                    columns={columns}
+                    columns={getColumns({
+                        empresaId,
+                        permissions: {
+                            canEdit: permissions.canEdit,
+                            canDelete: permissions.canDelete,
+                        },
+                        onEdit: fetchNextPeriod,
+                    })}
                     data={datosVentaHistorico}
                     filterColumn="anio"
                     filterPlaceholder="Filtrar por año..."

@@ -56,6 +56,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // Gestión de datos históricos
         Route::get('/proyecciones/{empresa}/next-period', [ProyeccionVentasController::class, 'getNextPeriod'])->name('proyecciones.next-period');
         Route::post('/proyecciones/{empresa}/datos-historicos', [ProyeccionVentasController::class, 'store'])->name('proyecciones.datos-historicos.store');
+        Route::put('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'update'])->name('proyecciones.datos-historicos.update');
     });
 
     Route::middleware('can:estados-financieros.create')->group(function () {
