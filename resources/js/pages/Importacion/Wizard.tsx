@@ -1,35 +1,53 @@
-
 import AppLayout from '@/layouts/app-layout';
 import React from 'react';
 import { CuentaBase, Empresa, PlantillaCatalogo, Sector } from '@/types';
 import { useForm, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import axios from 'axios';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { FileUp, AlertCircle } from 'lucide-react';
 
 // --- Componente para el Paso 1 ---
 interface DefineEmpresaStepProps {
   empresas: Empresa[];
   sectores: Sector[];
-  plantillas: PlantillaCatalogo[];
-  onEmpresaSelected: (empresa: Empresa) => void;
+  onEmpresaSelected: (empresa: Empresa, action: 'goToStep2' | 'goToStep3') => void;
 }
 
-const DefineEmpresaStep: React.FC<DefineEmpresaStepProps> = ({ empresas, sectores, plantillas, onEmpresaSelected }) => {
+const DefineEmpresaStep: React.FC<DefineEmpresaStepProps> = ({ empresas, sectores, onEmpresaSelected }) => {
   const [tipoSeleccion, setTipoSeleccion] = React.useState('existente');
-  const [selectedEmpresaId, setSelectedEmpresaId] = React.useState('');
+  const [selectedEmpresa, setSelectedEmpresa] = React.useState<Empresa | null>(null);
+  const [existingCompanyState, setExistingCompanyState] = React.useState<'idle' | 'loading' | 'has_catalog' | 'no_catalog'>('idle');
 
   const { data, setData, post, processing, errors } = useForm({
     nombre: '',
-    sector_id: sectores[0]?.id || '',
-    plantilla_catalogo_id: plantillas[0]?.id || '',
+    sector_id: sectores[0]?.id.toString() || '',
+    nombre_plantilla: '',
   });
 
-  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const empresaId = e.target.value;
-    setSelectedEmpresaId(empresaId);
+  const handleExistingCompanySelect = async (empresaId: string) => {
     const selected = empresas.find(emp => emp.id.toString() === empresaId);
     if (selected) {
-      onEmpresaSelected(selected);
+      setSelectedEmpresa(selected);
+      setExistingCompanyState('loading');
+      try {
+        const response = await axios.get(route('empresas.checkCatalogStatus', selected.id));
+        if (response.data.has_catalog) {
+          setExistingCompanyState('has_catalog');
+        } else {
+          setExistingCompanyState('no_catalog');
+        }
+      } catch (error) {
+        console.error('Error checking catalog status:', error);
+        setExistingCompanyState('idle'); // Reset on error
+      }
     }
   };
 
@@ -39,49 +57,107 @@ const DefineEmpresaStep: React.FC<DefineEmpresaStepProps> = ({ empresas, sectore
       onSuccess: (page) => {
         const newEmpresa = (page.props as any).jetstream.flash.empresa as Empresa;
         if (newEmpresa) {
-          onEmpresaSelected(newEmpresa);
+          onEmpresaSelected(newEmpresa, 'goToStep2'); // New companies always go to step 2
         }
       },
     });
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-medium text-gray-900 dark:text-white">Paso 1: Definir la Empresa</h2>
-      <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Seleccione una empresa existente o cree una nueva.</p>
-      <fieldset className="mt-4">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center">
-            <input id="existente" name="tipo-seleccion" type="radio" checked={tipoSeleccion === 'existente'} onChange={() => setTipoSeleccion('existente')} className="h-4 w-4 text-indigo-600 border-gray-300" />
-            <label htmlFor="existente" className="ml-3 block text-sm font-medium">Empresa Existente</label>
+    <Card>
+      <CardHeader>
+        <CardTitle>Paso 1: Definir la Empresa</CardTitle>
+        <CardDescription>Seleccione una empresa existente para añadirle datos o cree una nueva desde cero.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <RadioGroup defaultValue="existente" onValueChange={(value) => { setTipoSeleccion(value); setExistingCompanyState('idle'); setSelectedEmpresa(null); }} className="flex space-x-4">
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="existente" id="existente" />
+            <Label htmlFor="existente">Empresa Existente</Label>
           </div>
-          <div className="flex items-center">
-            <input id="nueva" name="tipo-seleccion" type="radio" checked={tipoSeleccion === 'nueva'} onChange={() => setTipoSeleccion('nueva')} className="h-4 w-4 text-indigo-600 border-gray-300" />
-            <label htmlFor="nueva" className="ml-3 block text-sm font-medium">Nueva Empresa</label>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="nueva" id="nueva" />
+            <Label htmlFor="nueva">Nueva Empresa</Label>
           </div>
-        </div>
-      </fieldset>
-      {tipoSeleccion === 'existente' ? (
-        <div className="mt-4">
-          <select value={selectedEmpresaId} onChange={handleSelectChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:bg-gray-700">
-            <option value="">-- Seleccione una empresa --</option>
-            {empresas.map((empresa) => (<option key={empresa.id} value={empresa.id}>{empresa.nombre}</option>))}
-          </select>
-        </div>
-      ) : (
-        <form className="mt-4 space-y-4" onSubmit={handleCreateSubmit}>
-          <input type="text" value={data.nombre} onChange={e => setData('nombre', e.target.value)} placeholder="Nombre de la Empresa" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-          {errors.nombre && <p className="text-sm text-red-600">{errors.nombre}</p>}
-          <select value={data.sector_id} onChange={e => setData('sector_id', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:bg-gray-700">
-            {sectores.map((sector) => (<option key={sector.id} value={sector.id}>{sector.nombre}</option>))}
-          </select>
-          <select value={data.plantilla_catalogo_id} onChange={e => setData('plantilla_catalogo_id', e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm dark:bg-gray-700">
-            {plantillas.map((plantilla) => (<option key={plantilla.id} value={plantilla.id}>{plantilla.nombre}</option>))}
-          </select>
-          <Button type="submit" disabled={processing}>Crear y Continuar</Button>
-        </form>
-      )}
-    </div>
+        </RadioGroup>
+
+        {tipoSeleccion === 'existente' ? (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="empresa-existente">Seleccione una empresa</Label>
+              <Select onValueChange={handleExistingCompanySelect} value={selectedEmpresa?.id.toString() || ''}>
+                <SelectTrigger id="empresa-existente">
+                  <SelectValue placeholder="-- Seleccione una empresa --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {empresas.map((empresa) => (
+                    <SelectItem key={empresa.id} value={empresa.id.toString()}>{empresa.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {existingCompanyState === 'loading' && <p className="text-sm text-muted-foreground">Verificando catálogo...</p>}
+            
+            {existingCompanyState === 'has_catalog' && selectedEmpresa && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Catálogo Encontrado</AlertTitle>
+                <AlertDescription>
+                  <p>Esta empresa ya tiene un catálogo de cuentas configurado. Puede importar estados financieros directamente o re-mapear el catálogo si es necesario.</p>
+                  <div className="mt-4 flex space-x-4">
+                    <Button onClick={() => onEmpresaSelected(selectedEmpresa, 'goToStep3')}>Importar Estado Financiero</Button>
+                    <Button variant="outline" onClick={() => onEmpresaSelected(selectedEmpresa, 'goToStep2')}>Re-mapear Catálogo</Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {existingCompanyState === 'no_catalog' && selectedEmpresa && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Acción Requerida</AlertTitle>
+                <AlertDescription>
+                  <p>Esta empresa no tiene un catálogo de cuentas. Debe cargar y mapear uno antes de continuar.</p>
+                  <div className="mt-4">
+                    <Button onClick={() => onEmpresaSelected(selectedEmpresa, 'goToStep2')}>Cargar Catálogo de Cuentas</Button>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+          </div>
+        ) : (
+          <form className="space-y-4" onSubmit={handleCreateSubmit}>
+            <div className="space-y-2">
+              <Label htmlFor="nombre">Nombre de la Empresa</Label>
+              <Input id="nombre" value={data.nombre} onChange={e => setData('nombre', e.target.value)} placeholder="Ej. Mi Empresa S.A. de C.V." />
+              {errors.nombre && <p className="text-sm text-red-600 mt-1">{errors.nombre}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="nombre_plantilla">Nombre de la Plantilla de Catálogo</Label>
+              <Input id="nombre_plantilla" value={data.nombre_plantilla} onChange={e => setData('nombre_plantilla', e.target.value)} placeholder="Ej. Catálogo NIIF Pymes 2024" />
+              {errors.nombre_plantilla && <p className="text-sm text-red-600 mt-1">{errors.nombre_plantilla}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sector">Sector Industrial</Label>
+              <Select onValueChange={value => setData('sector_id', value)} value={data.sector_id.toString()}>
+                <SelectTrigger id="sector">
+                  <SelectValue placeholder="Seleccione un sector" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sectores.map((sector) => (
+                    <SelectItem key={sector.id} value={sector.id.toString()}>{sector.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="submit" disabled={processing}>
+              {processing ? 'Creando...' : 'Crear y Continuar'}
+            </Button>
+          </form>
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
@@ -90,25 +166,114 @@ interface MapeoCatalogoStepProps {
   empresa: Empresa;
   cuentasBase: CuentaBase[];
   onMapeoCompleto: () => void;
+  onBack: () => void;
 }
 
-const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasBase, onMapeoCompleto }) => {
+import { toast } from 'sonner';
+
+// ... (previous imports) ...
+
+// --- Componente para el Paso 2 ---
+interface MapeoCatalogoStepProps {
+  empresa: Empresa;
+  cuentasBase: CuentaBase[];
+  onMapeoCompleto: () => void;
+  onBack: () => void;
+}
+
+const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasBase, onMapeoCompleto, onBack }) => {
   const [archivo, setArchivo] = React.useState<File | null>(null);
   const [cuentas, setCuentas] = React.useState<any[]>([]);
   const [isProcessing, setIsProcessing] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [errors, setErrors] = React.useState<string[]>([]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => e.target.files && setArchivo(e.target.files[0]);
+  const handleFileSelect = (file: File | null) => {
+    if (file) {
+        const allowedExtensions = /(\.xlsx|\.xls|\.csv)$/i;
+        if (!allowedExtensions.exec(file.name)) {
+            toast.error('Tipo de archivo no válido', { 
+                description: 'Por favor, seleccione un archivo de Excel (.xlsx, .xls) o CSV (.csv).',
+            });
+            return;
+        }
+        setArchivo(file);
+        setErrors([]); // Clear previous errors on new file select
+        setCuentas([]); // Clear previous preview
+    }
+  }
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+        handleFileSelect(droppedFile);
+    }
+  };
+
 
   const handleAutomap = async () => {
-    if (!archivo) return;
+    if (!archivo) {
+        toast.warning('Por favor, seleccione un archivo primero.');
+        return;
+    }
     setIsProcessing(true);
+    setUploadProgress(0);
+    setErrors([]);
+    setCuentas([]);
+    toast.info('Procesando archivo, por favor espere...');
+
     const formData = new FormData();
     formData.append('archivo', archivo);
     formData.append('plantilla_catalogo_id', empresa.plantilla_catalogo_id.toString());
+    
     try {
-      const response = await axios.post(route('importacion.automap'), formData);
-      setCuentas(response.data);
-    } catch (error) { console.error(error); }
+      const response = await axios.post(route('importacion.automap'), formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          setUploadProgress(percentCompleted);
+        }
+      });
+
+      const { datos, errores } = response.data;
+
+      if (errores && errores.length > 0) {
+        setErrors(errores);
+        toast.error('Se encontraron errores en el archivo del catálogo.', { description: 'Revise el registro de errores para más detalles.' });
+      }
+
+      if (datos && datos.length > 0) {
+        setCuentas(datos);
+        if (!errores || errores.length === 0) {
+            toast.success('Archivo procesado. Revise la previsualización del mapeo.');
+        } else {
+            toast.warning('Archivo procesado con algunos errores. Revise los resultados.');
+        }
+      } else {
+        if (!errores || errores.length === 0) {
+            toast.warning('El mapeo se completó, pero no se encontraron cuentas para mostrar.', { description: 'Puede que el archivo esté vacío o las cabeceras no sean correctas.' });
+        }
+      }
+    } catch (error: any) {
+        console.error(error);
+        toast.error('Ocurrió un error inesperado al procesar el archivo.');
+    }
     finally { setIsProcessing(false); }
   };
 
@@ -120,77 +285,195 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
 
   const handleGuardarMapeo = async () => {
     setIsProcessing(true);
+    toast.info('Guardando mapeo...');
     try {
       await axios.post(route('importacion.guardarMapeo'), {
         empresa_id: empresa.id,
         cuentas: cuentas,
       });
+      toast.success('Mapeo guardado con éxito.');
       onMapeoCompleto();
-    } catch (error) { console.error(error); }
+    } catch (error) {
+        console.error(error);
+        toast.error('No se pudo guardar el mapeo.');
+    }
     finally { setIsProcessing(false); }
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-medium">Paso 2: Cargar y Mapear Catálogo</h2>
-      <p className="mt-1 text-sm text-gray-600">Suba su catálogo para que el sistema intente mapearlo.</p>
-      <div className="mt-4 flex items-center gap-4">
-        <input type="file" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
-        <Button onClick={handleAutomap} disabled={!archivo || isProcessing}>{isProcessing ? 'Procesando...' : 'Iniciar Auto-Mapeo'}</Button>
-      </div>
-      {cuentas.length > 0 && (
-        <div className="mt-6">
-          <table className="min-w-full divide-y divide-gray-300">
-            <thead><tr><th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold">Su Cuenta</th><th className="px-3 py-3.5 text-left text-sm font-semibold">Cuenta del Sistema Asignada</th></tr></thead>
-            <tbody className="divide-y divide-gray-200">
-              {cuentas.map((cuenta, index) => (
-                <tr key={index}>
-                  <td className="py-4 pl-4 pr-3 text-sm font-medium">{cuenta.codigo_cuenta} - {cuenta.nombre_cuenta}</td>
-                  <td className="px-3 py-4 text-sm">
-                    <select value={cuenta.cuenta_base_id || ''} onChange={(e) => handleMapeoChange(index, e.target.value)} className="block w-full rounded-md border-gray-300 shadow-sm dark:bg-gray-700">
-                      <option value="">-- No asignar --</option>
-                      {cuentasBase.map(cb => (<option key={cb.id} value={cb.id}>{cb.nombre}</option>))}
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-6 flex justify-end">
-            <Button onClick={handleGuardarMapeo} disabled={isProcessing}>Guardar Mapeo y Continuar</Button>
-          </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Paso 2: Cargar y Mapear Catálogo de Cuentas</CardTitle>
+        <CardDescription>Arrastre y suelte su catálogo en formato Excel (.xlsx, .xls, .csv) en el área designada o haga clic para seleccionarlo.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center gap-4">
+            <Label 
+                htmlFor="catalogo-file-input" 
+                className={`flex-1 flex items-center justify-center w-full p-6 border-2 border-dashed rounded-md cursor-pointer transition-colors 
+                    ${isDragging ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'}`}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+            >
+                <div className="text-center">
+                    <FileUp className={`w-10 h-10 mx-auto mb-2 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <p className="font-semibold">{archivo ? archivo.name : 'Arrastre un archivo aquí o haga clic para seleccionar'}</p>
+                    <p className="text-xs text-muted-foreground">Columnas requeridas: codigo_cuenta, nombre_cuenta</p>
+                </div>
+            </Label>
+            <Input 
+                id="catalogo-file-input" 
+                type="file" 
+                className="hidden" 
+                onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} 
+                accept=".xlsx,.xls,.csv" 
+            />
+          <Button onClick={handleAutomap} disabled={!archivo || isProcessing} size="lg">
+            {isProcessing ? 'Procesando...' : 'Iniciar Auto-Mapeo'}
+          </Button>
         </div>
-      )}
-    </div>
+
+        {isProcessing && uploadProgress > 0 && <Progress value={uploadProgress} className="w-full" />}
+
+        {errors.length > 0 && (
+            <div className="space-y-2 pt-4">
+                <Label className="text-destructive">Registro de Errores de Catálogo</Label>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 max-h-40 overflow-y-auto">
+                    <pre className="text-sm text-destructive whitespace-pre-wrap font-mono">
+                        {errors.map((error, i) => (
+                            <p key={i} className="flex items-start">
+                                <span className="mr-2 text-red-400">-&gt;</span>
+                                <span>{error}</span>
+                            </p>
+                        ))}
+                    </pre>
+                </div>
+            </div>
+        )}
+
+        {cuentas.length > 0 && (
+          <div>
+            <h3 className="text-md font-medium mb-4">Previsualización y Mapeo</h3>
+            <div className="border rounded-md max-h-96 overflow-y-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Su Cuenta (Desde Archivo)</TableHead>
+                    <TableHead>Cuenta del Sistema Asignada</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {cuentas.map((cuenta, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{cuenta.codigo_cuenta} - {cuenta.nombre_cuenta}</TableCell>
+                      <TableCell>
+                        <Select onValueChange={(value) => handleMapeoChange(index, value)} defaultValue={cuenta.cuenta_base_id?.toString() || ''}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="-- No asignar --" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">-- No asignar --</SelectItem>
+                            {cuentasBase.map(cb => (<SelectItem key={cb.id} value={cb.id.toString()}>{cb.nombre}</SelectItem>))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={onBack}>Atrás</Button>
+        <Button onClick={handleGuardarMapeo} disabled={isProcessing || cuentas.length === 0}>
+          {isProcessing ? 'Guardando...' : 'Guardar Mapeo y Continuar'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
 // --- Componente para el Paso 3 ---
-const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data: any) => void; }> = ({ empresa, onPreview }) => {
+const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data: any) => void; onBack: () => void; }> = ({ empresa, onPreview, onBack }) => {
   const [archivo, setArchivo] = React.useState<File | null>(null);
-  const [anio, setAnio] = React.useState(new Date().getFullYear());
+  const [anio, setAnio] = React.useState(new Date().getFullYear().toString());
   const [tipoEstado, setTipoEstado] = React.useState('balance_general');
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [isDragging, setIsDragging] = React.useState(false);
+
+  const handleFileChange = (file: File | null) => {
+    if (file) {
+        const allowedExtensions = /(\.xlsx|\.xls|\.csv)$/i;
+        if (!allowedExtensions.exec(file.name)) {
+            toast.error('Tipo de archivo no válido', { 
+                description: 'Por favor, seleccione un archivo de Excel (.xlsx, .xls) o CSV (.csv).',
+            });
+            return;
+        }
+        setArchivo(file);
+        setErrors([]);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+        handleFileChange(droppedFile);
+    }
+  };
 
   const handlePreview = async () => {
     if (!archivo) return;
     setIsProcessing(true);
+    setUploadProgress(0);
     setErrors([]);
+    toast.info('Validando estado financiero...');
+
     const formData = new FormData();
     formData.append('archivo', archivo);
     formData.append('empresa_id', empresa.id.toString());
-    formData.append('anio', anio.toString());
+    formData.append('anio', anio);
     formData.append('tipo_estado', tipoEstado);
 
     try {
-      const response = await axios.post(route('importacion.previsualizar'), formData);
-      onPreview({ data: response.data, anio, tipoEstado });
+      const response = await axios.post(route('importacion.previsualizar'), formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          setUploadProgress(percentCompleted);
+        }
+      });
+      toast.success('Validación completada. Revise la previsualización.');
+      onPreview({ data: response.data, anio: parseInt(anio), tipoEstado });
     } catch (error: any) {
-      if (error.response && error.response.status === 422) {
-        setErrors(error.response.data.errors);
+      if (error.response && error.response.status === 422 && error.response.data.errors) {
+        const errorMessages = Array.isArray(error.response.data.errors) ? error.response.data.errors : Object.values(error.response.data.errors).flat();
+        setErrors(errorMessages as string[]);
+        toast.error('Se encontraron errores en el archivo.', { description: 'Por favor, revise el registro de errores a continuación.' });
       } else {
-        setErrors(['Ocurrió un error inesperado.']);
+        setErrors(['Ocurrió un error inesperado. Por favor, revise el formato del archivo.']);
+        toast.error('Ocurrió un error inesperado.');
       }
     } finally {
       setIsProcessing(false);
@@ -198,33 +481,77 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-medium">Paso 3: Cargar Estado Financiero</h2>
-      <div className="mt-4 space-y-4">
-        <input type="number" value={anio} onChange={e => setAnio(parseInt(e.target.value))} placeholder="Año" className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
-        <select value={tipoEstado} onChange={e => setTipoEstado(e.target.value)} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
-          <option value="balance_general">Balance General</option>
-          <option value="estado_resultados">Estado de Resultados</option>
-        </select>
-        <input type="file" onChange={e => e.target.files && setArchivo(e.target.files[0])} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0"/>
-      </div>
-      {errors.length > 0 && (
-        <div className="mt-4 rounded-md bg-red-50 p-4">
-          <h3 className="text-sm font-medium text-red-800">Errores de Validación:</h3>
-          <ul className="list-disc pl-5 mt-2 text-sm text-red-700 space-y-1">
-            {errors.map((error, i) => <li key={i}>{error}</li>)}
-          </ul>
+    <Card>
+      <CardHeader>
+        <CardTitle>Paso 3: Cargar Estado Financiero</CardTitle>
+        <CardDescription>Arrastre y suelte el estado financiero (Balance General o E. de Resultados) para el año especificado.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="anio">Año del Estado Financiero</Label>
+            <Input id="anio" type="number" value={anio} onChange={e => setAnio(e.target.value)} placeholder="Ej. 2023" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="tipo-estado">Tipo de Estado</Label>
+            <Select onValueChange={setTipoEstado} value={tipoEstado}>
+              <SelectTrigger id="tipo-estado">
+                <SelectValue placeholder="Seleccione un tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="balance_general">Balance General</SelectItem>
+                <SelectItem value="estado_resultados">Estado de Resultados</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      )}
-      <div className="mt-6 flex justify-end">
-        <Button onClick={handlePreview} disabled={!archivo || isProcessing}>{isProcessing ? 'Procesando...' : 'Cargar y Previsualizar'}</Button>
-      </div>
-    </div>
+        <div className="space-y-2">
+            <Label 
+                htmlFor="estado-file-input" 
+                className={`flex flex-col items-center justify-center w-full p-6 border-2 border-dashed rounded-md cursor-pointer transition-colors 
+                    ${isDragging ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'}`}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+            >
+                <FileUp className={`w-10 h-10 mb-2 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+                <span className="font-semibold">{archivo ? archivo.name : 'Arrastre un archivo aquí o haga clic para seleccionar'}</span>
+                <span className="text-xs text-muted-foreground">Excel (.xlsx, .xls, .csv)</span>
+            </Label>
+            <Input id="estado-file-input" type="file" className="hidden" onChange={e => handleFileChange(e.target.files ? e.target.files[0] : null)} accept=".xlsx,.xls,.csv" />
+        </div>
+
+        {isProcessing && <Progress value={uploadProgress} className="w-full" />}
+
+        {errors.length > 0 && (
+            <div className="space-y-2">
+                <Label className="text-destructive">Registro de Errores de Importación</Label>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 max-h-40 overflow-y-auto">
+                    <pre className="text-sm text-destructive whitespace-pre-wrap font-mono">
+                        {errors.map((error, i) => (
+                            <p key={i} className="flex items-start">
+                                <span className="mr-2 text-red-400">-&gt;</span>
+                                <span>{error}</span>
+                            </p>
+                        ))}
+                    </pre>
+                </div>
+            </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={onBack}>Atrás</Button>
+        <Button onClick={handlePreview} disabled={!archivo || isProcessing}>
+          {isProcessing ? 'Validando...' : 'Cargar y Validar'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
 // --- Componente para el Paso 4 ---
-const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; }> = ({ previewData, empresaId }) => {
+const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack: () => void; }> = ({ previewData, empresaId, onBack }) => {
   const [isSaving, setIsSaving] = React.useState(false);
 
   const handleConfirm = () => {
@@ -242,26 +569,41 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; }> = ({
   };
 
   return (
-    <div>
-      <h2 className="text-lg font-medium">Paso 4: Previsualizar y Confirmar</h2>
-      <p className="mt-1 text-sm text-gray-600">Revise los datos interpretados antes de guardarlos.</p>
-      <div className="mt-6 flow-root">
-        <table className="min-w-full divide-y divide-gray-300">
-          <thead><tr><th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold">Cuenta</th><th className="px-3 py-3.5 text-left text-sm font-semibold">Valor</th></tr></thead>
-          <tbody className="divide-y divide-gray-200">
-            {previewData.data.map((item: any, index: number) => (
-              <tr key={index}>
-                <td className="py-4 pl-4 pr-3 text-sm font-medium">{item.nombre_cuenta} ({item.cuenta_base_nombre})</td>
-                <td className="px-3 py-4 text-sm">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.valor)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <div className="mt-6 flex justify-end">
-        <Button onClick={handleConfirm} disabled={isSaving}>{isSaving ? 'Guardando...' : 'Confirmar y Guardar'}</Button>
-      </div>
-    </div>
+    <Card>
+      <CardHeader>
+        <CardTitle>Paso 4: Previsualizar y Confirmar</CardTitle>
+        <CardDescription>Revise los datos interpretados del estado financiero antes de guardarlos permanentemente en el sistema.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="border rounded-md">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cuenta (Mapeada a Cuenta Base)</TableHead>
+                <TableHead className="text-right">Valor</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {previewData.data.map((item: any, index: number) => (
+                <TableRow key={index}>
+                  <TableCell>
+                    <div className="font-medium">{item.nombre_cuenta}</div>
+                    <div className="text-sm text-muted-foreground">Mapeada a: {item.cuenta_base_nombre}</div>
+                  </TableCell>
+                  <TableCell className="text-right">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.valor)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={onBack}>Atrás</Button>
+        <Button onClick={handleConfirm} disabled={isSaving}>
+          {isSaving ? 'Guardando...' : 'Confirmar y Guardar'}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 };
 
@@ -272,9 +614,13 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
   const [empresa, setEmpresa] = React.useState<Empresa | null>(null);
   const [previewData, setPreviewData] = React.useState<any>(null);
 
-  const handleEmpresaSelected = (selectedEmpresa: Empresa) => {
+  const handleEmpresaSelected = (selectedEmpresa: Empresa, action: 'goToStep2' | 'goToStep3') => {
     setEmpresa(selectedEmpresa);
-    setStep(2);
+    if (action === 'goToStep2') {
+      setStep(2);
+    } else if (action === 'goToStep3') {
+      setStep(3);
+    }
   };
 
   const handleMapeoCompleto = () => setStep(3);
@@ -282,6 +628,26 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
   const handlePreview = (data: any) => {
     setPreviewData(data);
     setStep(4);
+  };
+
+  const handleBack = () => {
+    if (step > 1) {
+        // If we are on the preview step, and we go back, we should land on the step determined by the company's catalog status
+        if (step === 4) {
+            setStep(3);
+            return;
+        }
+        // If we are on step 3, we go back to step 1 to re-evaluate the company
+        if (step === 3) {
+            setStep(1);
+            return;
+        }
+        // If we are on step 2, we go back to step 1
+        if (step === 2) {
+            setStep(1);
+            return;
+        }
+    }
   };
 
   const getCuentasBaseParaEmpresa = () => {
@@ -293,24 +659,50 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
   const renderStep = () => {
     switch (step) {
       case 1:
-        return <DefineEmpresaStep empresas={empresas} sectores={sectores} plantillas={plantillas} onEmpresaSelected={handleEmpresaSelected} />;
+        return <DefineEmpresaStep empresas={empresas} sectores={sectores} onEmpresaSelected={handleEmpresaSelected} />;
       case 2:
-        return empresa ? <MapeoCatalogoStep empresa={empresa} cuentasBase={getCuentasBaseParaEmpresa()} onMapeoCompleto={handleMapeoCompleto} /> : <p>Por favor, complete el paso 1.</p>;
+        return empresa ? <MapeoCatalogoStep empresa={empresa} cuentasBase={getCuentasBaseParaEmpresa()} onMapeoCompleto={handleMapeoCompleto} onBack={handleBack} /> : <p>Por favor, regrese y seleccione una empresa.</p>;
       case 3:
-        return empresa ? <CargarEstadoFinancieroStep empresa={empresa} onPreview={handlePreview} /> : <p>Por favor, complete los pasos anteriores.</p>;
+        return empresa ? <CargarEstadoFinancieroStep empresa={empresa} onPreview={handlePreview} onBack={handleBack} /> : <p>Por favor, regrese y seleccione una empresa.</p>;
       case 4:
-        return previewData && empresa ? <PrevisualizarStep previewData={previewData} empresaId={empresa.id} /> : <p>No hay datos para previsualizar.</p>;
+        return previewData && empresa ? <PrevisualizarStep previewData={previewData} empresaId={empresa.id} onBack={handleBack} /> : <p>No hay datos para previsualizar.</p>;
       default:
         return <p>Paso desconocido.</p>;
     }
   };
 
+  const steps = [
+    { id: 1, name: 'Empresa' },
+    { id: 2, name: 'Catálogo' },
+    { id: 3, name: 'Estado Financiero' },
+    { id: 4, name: 'Confirmar' },
+  ];
+
   return (
     <AppLayout>
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-semibold">Asistente de Configuración e Importación</h1>
-          <div className="mt-8"><div className="p-6  rounded-lg shadow-md">{renderStep()}</div></div>
+          <div className="mb-8">
+            <h1 className="text-2xl font-bold tracking-tight">Asistente de Configuración e Importación</h1>
+            <p className="text-muted-foreground">Siga los pasos para configurar una empresa e importar sus datos financieros.</p>
+          </div>
+          
+          {/* Stepper */}
+          <div className="mb-8 flex items-center justify-between">
+            {steps.map((s, index) => (
+              <React.Fragment key={s.id}>
+                <div className="flex flex-col items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${step >= s.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                    {s.id}
+                  </div>
+                  <p className={`mt-2 text-sm font-medium ${step >= s.id ? 'text-primary' : 'text-muted-foreground'}`}>{s.name}</p>
+                </div>
+                {index < steps.length - 1 && <div className="flex-1 h-px bg-border mx-4"></div>}
+              </React.Fragment>
+            ))}
+          </div>
+
+          <div className="mt-8">{renderStep()}</div>
         </div>
       </div>
     </AppLayout>

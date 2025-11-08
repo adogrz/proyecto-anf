@@ -39,6 +39,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Gestión de Empresas y sus datos (Para 'Gerente Financiero' y 'Administrador')
     Route::resource('empresas', EmpresasController::class)->middleware('can:empresas.index');
+    Route::get('empresas/{empresa}/check-catalog-status', [EmpresasController::class, 'checkCatalogStatus'])->name('empresas.checkCatalogStatus');
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
 
@@ -71,8 +72,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::middleware('can:estados-financieros.create')->group(function () {
         Route::get('/importacion/wizard', [ImportacionController::class, 'wizard'])->name('importacion.wizard');
-        Route::post('/importacion/automap', [CatalogosCuentasController::class, 'automap'])->name('importacion.automap');
-        Route::post('/importacion/guardar-mapeo', [CatalogosCuentasController::class, 'guardarMapeo'])->name('importacion.guardarMapeo');
+        Route::post('/importacion/automap', [ImportacionController::class, 'automap'])->name('importacion.automap');
+        Route::post('/importacion/guardar-mapeo', [ImportacionController::class, 'guardarMapeo'])->name('importacion.guardarMapeo');
         Route::post('/importacion/previsualizar', [ImportacionController::class, 'previsualizar'])->name('importacion.previsualizar');
         Route::post('/importacion/guardar-estado-financiero', [ImportacionController::class, 'guardarEstadoFinanciero'])->name('importacion.guardarEstadoFinanciero');
     });
