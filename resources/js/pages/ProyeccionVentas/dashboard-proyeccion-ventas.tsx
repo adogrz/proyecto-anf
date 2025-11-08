@@ -10,7 +10,13 @@ import { BreadcrumbItem } from '@/types';
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
 import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
-import { CirclePlus, Download, LineChart, Upload } from 'lucide-react';
+import {
+    CirclePlus,
+    Download,
+    LineChart,
+    TriangleAlert,
+    Upload,
+} from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 const BREADCRUMBS: BreadcrumbItem[] = [
@@ -21,6 +27,8 @@ const BREADCRUMBS: BreadcrumbItem[] = [
 interface ProyeccionesShowProps {
     datosVentaHistorico: DatoVentaHistorico[];
     empresaId: number;
+    cantidadMeses: number;
+    puedeGenerarProyecciones: boolean;
     permissions: {
         canCreate: boolean;
         canEdit: boolean;
@@ -31,6 +39,8 @@ interface ProyeccionesShowProps {
 export default function ProyeccionesShow({
     datosVentaHistorico,
     empresaId,
+    cantidadMeses,
+    puedeGenerarProyecciones,
     permissions,
 }: ProyeccionesShowProps) {
     const pageTitle = 'Gestión de Datos Históricos';
@@ -93,6 +103,7 @@ export default function ProyeccionesShow({
                         <Button
                             onClick={handleGenerarProyecciones}
                             className="space-x-1"
+                            disabled={!puedeGenerarProyecciones}
                         >
                             <LineChart className="h-4 w-4" />
                             <span>Generar proyecciones</span>
@@ -140,6 +151,33 @@ export default function ProyeccionesShow({
                         )}
                     </div>
                 </div>
+
+                {/* Alerta de datos insuficientes */}
+                {!puedeGenerarProyecciones && (
+                    <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/50">
+                        <p className="text-sm text-amber-800 dark:text-amber-200">
+                            <TriangleAlert
+                                className="me-3 -mt-0.5 inline-flex"
+                                size={16}
+                                aria-hidden="true"
+                            />
+                            Se requieren al menos <strong>12 meses</strong> de
+                            datos históricos para generar proyecciones.
+                            Actualmente tienes <strong>{cantidadMeses}</strong>{' '}
+                            {cantidadMeses === 1 ? 'mes' : 'meses'} registrados.
+                            {12 - cantidadMeses > 0 && (
+                                <>
+                                    {' '}
+                                    Agrega <strong>
+                                        {12 - cantidadMeses}
+                                    </strong>{' '}
+                                    {12 - cantidadMeses === 1 ? 'mes' : 'meses'}{' '}
+                                    más.
+                                </>
+                            )}
+                        </p>
+                    </div>
+                )}
 
                 {/* Tabla de datos */}
                 <DataTable

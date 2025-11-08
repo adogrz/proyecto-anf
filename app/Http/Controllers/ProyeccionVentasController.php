@@ -7,12 +7,15 @@ use App\Models\ProyeccionVenta;
 use App\Services\FormateoProyeccionService;
 use App\Services\ImportacionVentasService;
 use App\Services\ProyeccionService;
+use Exception;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use InvalidArgumentException;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -78,7 +81,7 @@ class ProyeccionVentasController extends Controller
 
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return back()->withErrors([
                 'csv_file' => 'Error interno al procesar el archivo. Por favor, intente nuevamente.',
             ]);
@@ -98,10 +101,15 @@ class ProyeccionVentasController extends Controller
             ->orderBy('mes', 'desc')
             ->get();
 
+        $cantidadMeses = $datosVentaHistorico->count();
+        $puedeGenerarProyecciones = $cantidadMeses >= 12;
+
         return Inertia::render('ProyeccionVentas/dashboard-proyeccion-ventas', [
             'datosVentaHistorico' => $datosVentaHistorico,
             'permissions' => $this->getUserPermissions($request->user()),
             'empresaId' => $empresa,
+            'cantidadMeses' => $cantidadMeses,
+            'puedeGenerarProyecciones' => $puedeGenerarProyecciones,
         ]);
     }
 
@@ -119,10 +127,10 @@ class ProyeccionVentasController extends Controller
             ->orderBy('mes')
             ->get();
 
-        if ($datosVentaHistoricos->count() < 2) {
+        if ($datosVentaHistoricos->count() < 12) {
             return redirect()
                 ->route('dashboard.proyecciones', $empresa)
-                ->with('error', 'Se requieren al menos 2 períodos de datos históricos para generar proyecciones.');
+                ->with('error', 'Se requieren al menos 12 meses de datos históricos para generar proyecciones.');
         }
 
         try {
@@ -147,7 +155,7 @@ class ProyeccionVentasController extends Controller
                 'datosProyecciones' => $datosFormateados['proyecciones'],
             ]);
 
-        } catch (\InvalidArgumentException | \RuntimeException $e) {
+        } catch (InvalidArgumentException | RuntimeException $e) {
             return redirect()
                 ->route('dashboard.proyecciones', $empresa)
                 ->with('error', 'Error al calcular proyecciones: ' . $e->getMessage());
