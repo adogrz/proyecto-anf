@@ -1,3 +1,5 @@
+'use client';
+
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -33,10 +35,9 @@ export function ImportCSVDialog({ empresaId, children }: ImportCSVDialogProps) {
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [erroresFila, setErroresFila] = useState<ErroresFila[]>([]);
     const intervalRef = useRef<number | null>(null);
-    const successToastRef = useRef(false); // evitar doble toast en StrictMode
+    const successToastRef = useRef(false);
 
     useEffect(() => {
-        // Limpieza si el componente se desmonta por navegación Inertia
         return () => {
             if (intervalRef.current) {
                 clearInterval(intervalRef.current);
@@ -47,7 +48,6 @@ export function ImportCSVDialog({ empresaId, children }: ImportCSVDialogProps) {
 
     const handleFileSelected = (file: File | null) => {
         setSelectedFile(file);
-        // Limpiar errores previos cuando se selecciona un nuevo archivo
         setUploadError(null);
         setErroresFila([]);
     };
@@ -125,7 +125,6 @@ export function ImportCSVDialog({ empresaId, children }: ImportCSVDialogProps) {
                 }
 
                 if (errors.errores_fila) {
-                    // El backend devuelve un array de objetos con { fila, errores }
                     const erroresFilaData = errors.errores_fila as unknown;
                     if (Array.isArray(erroresFilaData)) {
                         setErroresFila(erroresFilaData as ErroresFila[]);
@@ -133,7 +132,6 @@ export function ImportCSVDialog({ empresaId, children }: ImportCSVDialogProps) {
                 }
             },
             onFinish: () => {
-                // Solo limpiar intervalo; no cerrar aquí para distinguir éxito vs error
                 if (intervalRef.current) {
                     clearInterval(intervalRef.current);
                     intervalRef.current = null;

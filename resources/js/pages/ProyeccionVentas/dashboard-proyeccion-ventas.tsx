@@ -10,7 +10,7 @@ import { BreadcrumbItem } from '@/types';
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { CirclePlus, Download, Upload } from 'lucide-react';
+import { CirclePlus, Download, LineChart, Upload } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 const BREADCRUMBS: BreadcrumbItem[] = [
@@ -39,10 +39,8 @@ export default function ProyeccionesShow({
         nextPeriod: { mes: number; anio: number } | null;
     }>({ hasData: false, nextPeriod: null });
 
-    // Nuevo: estado local para la tabla
     const [rows, setRows] = useState<DatoVentaHistorico[]>(datosVentaHistorico);
 
-    // Mantener sincronizado si Inertia rehidrata con nuevos props
     useEffect(() => {
         setRows(datosVentaHistorico);
     }, [datosVentaHistorico]);
@@ -59,46 +57,67 @@ export default function ProyeccionesShow({
     }, [empresaId]);
 
     useEffect(() => {
-        // Obtener el próximo período al cargar el componente
         fetchNextPeriod();
     }, [fetchNextPeriod]);
 
-    // Callback cuando se elimina una fila (actualiza tabla y próximo período)
     const handleDeleted = (id: number) => {
         setRows((prev) => prev.filter((r) => r.id !== id));
         fetchNextPeriod();
     };
 
-    // Id del último registro (por año/mes ascendente)
     const lastRowId = rows
         .slice()
         .sort((a, b) => (a.anio === b.anio ? a.mes - b.mes : a.anio - b.anio))
         .at(-1)?.id;
 
     const handleDescargarPlantilla = () => {
-        // Navegar a la ruta que dispara la descarga
         window.location.href = '/proyecciones/plantilla/descargar';
+    };
+
+    const handleGenerarProyecciones = () => {
+        axios
+            .post(`/proyecciones/${empresaId}/generar`)
+            .then(() => {
+                alert('Proyecciones generadas exitosamente 🎉');
+            })
+            .catch((error) => {
+                console.error('Error al generar proyecciones:', error);
+                alert('Error al generar proyecciones.');
+            });
     };
 
     return (
         <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={pageTitle} />
-            {/* Se removió FlashMessages para evitar toasts múltiples si ya está en el layout */}
+
             <div className="flex h-full flex-1 flex-col gap-2 overflow-x-auto rounded-xl p-4">
-                {/* Encabezado */}
-                <div className="flex flex-wrap items-center justify-between space-y-2">
-                    <h2 className="text-2xl font-bold tracking-tight">
-                        {pageTitle}
-                    </h2>
-                    <div className="flex items-center gap-2">
+                {/* Encabezado principal con acción destacada */}
+                <div className="flex flex-col space-y-2">
+                    <div className="flex flex-wrap items-center justify-between">
+                        <h2 className="text-2xl font-bold tracking-tight">
+                            {pageTitle}
+                        </h2>
+
+                        <Button
+                            onClick={handleGenerarProyecciones}
+                            className="space-x-1"
+                        >
+                            <LineChart className="h-4 w-4" />
+                            <span>Generar proyecciones</span>
+                        </Button>
+                    </div>
+
+                    {/* Acciones secundarias */}
+                    <div className="flex flex-wrap items-center gap-2">
                         <Button
                             variant="secondary"
                             className="cursor-pointer space-x-1"
                             onClick={handleDescargarPlantilla}
                         >
-                            <Download />
+                            <Download className="h-4 w-4" />
                             <span>Descargar plantilla CSV</span>
                         </Button>
+
                         {permissions.canCreate && (
                             <>
                                 <ImportCSVDialog empresaId={empresaId}>
@@ -106,18 +125,22 @@ export default function ProyeccionesShow({
                                         variant="secondary"
                                         className="cursor-pointer space-x-1"
                                     >
-                                        <Upload />
+                                        <Upload className="h-4 w-4" />
                                         <span>Importar CSV</span>
                                     </Button>
                                 </ImportCSVDialog>
+
                                 <CreateDatoHistoricoDialog
                                     empresaId={empresaId}
                                     nextPeriod={nextPeriodData.nextPeriod}
                                     hasData={nextPeriodData.hasData}
                                     onSuccess={fetchNextPeriod}
                                 >
-                                    <Button className="cursor-pointer space-x-1">
-                                        <CirclePlus />
+                                    <Button
+                                        variant="secondary"
+                                        className="cursor-pointer space-x-1"
+                                    >
+                                        <CirclePlus className="h-4 w-4" />
                                         <span>Añadir Dato Manualmente</span>
                                     </Button>
                                 </CreateDatoHistoricoDialog>
@@ -126,7 +149,7 @@ export default function ProyeccionesShow({
                     </div>
                 </div>
 
-                {/* Tabla de Datos de Venta Historicos */}
+                {/* Tabla de datos */}
                 <DataTable
                     columns={getColumns({
                         empresaId,
