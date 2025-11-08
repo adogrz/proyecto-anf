@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\DatoVentaHistorico;
-use App\Models\ProyeccionVenta;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -13,8 +11,6 @@ use Illuminate\Http\Request;
  */
 class DatoVentaHistoricoController extends Controller
 {
-    use AuthorizesRequests;
-
     /**
      * Nombres completos de los meses en español.
      */
@@ -29,7 +25,7 @@ class DatoVentaHistoricoController extends Controller
      */
     public function getNextPeriod(Request $request, $empresa)
     {
-        $this->authorize('create', ProyeccionVenta::class);
+        abort_unless($request->user()?->can('proyecciones.create'), 403);
 
         $lastData = DatoVentaHistorico::query()
             ->byEmpresa($empresa)
@@ -71,7 +67,7 @@ class DatoVentaHistoricoController extends Controller
      */
     public function store(Request $request, $empresa): RedirectResponse
     {
-        $this->authorize('create', ProyeccionVenta::class);
+        abort_unless($request->user()?->can('proyecciones.create'), 403);
 
         $validated = $request->validate([
             'anio' => 'required|integer|min:2000|max:2100',
@@ -110,7 +106,7 @@ class DatoVentaHistoricoController extends Controller
      */
     public function update(Request $request, $empresa, $id): RedirectResponse
     {
-        $this->authorize('update', new ProyeccionVenta());
+        abort_unless($request->user()?->can('proyecciones.edit'), 403);
 
         $datoHistorico = DatoVentaHistorico::query()
             ->byEmpresa($empresa)
@@ -132,7 +128,7 @@ class DatoVentaHistoricoController extends Controller
      */
     public function destroy(Request $request, $empresa, $id): RedirectResponse
     {
-        $this->authorize('delete', new ProyeccionVenta());
+        abort_unless($request->user()?->can('proyecciones.delete'), 403);
 
         $dato = DatoVentaHistorico::query()
             ->byEmpresa($empresa)

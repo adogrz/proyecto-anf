@@ -3,12 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\DatoVentaHistorico;
-use App\Models\ProyeccionVenta;
 use App\Services\FormateoProyeccionService;
 use App\Services\ImportacionVentasService;
 use App\Services\ProyeccionService;
 use Exception;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -24,8 +22,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class ProyeccionVentasController extends Controller
 {
-    use AuthorizesRequests;
-
     public function __construct(
         private ImportacionVentasService $importacionService,
         private ProyeccionService $proyeccionService,
@@ -39,7 +35,7 @@ class ProyeccionVentasController extends Controller
     private function getUserPermissions($user): array
     {
         return [
-            'canCreate' => $user?->can('create', ProyeccionVenta::class) ?? false,
+            'canCreate' => $user?->can('proyecciones.create') ?? false,
             'canEdit' => $user?->can('proyecciones.edit') ?? false,
             'canDelete' => $user?->can('proyecciones.delete') ?? false,
         ];
@@ -48,9 +44,9 @@ class ProyeccionVentasController extends Controller
     /**
      * Genera y transmite una plantilla CSV para la carga de datos.
      */
-    public function descargarPlantilla(): StreamedResponse
+    public function descargarPlantilla(Request $request): StreamedResponse
     {
-        $this->authorize('create', ProyeccionVenta::class);
+        abort_unless($request->user()?->can('proyecciones.create'), 403);
 
         return $this->importacionService->descargarPlantillaCSV();
     }
@@ -60,7 +56,7 @@ class ProyeccionVentasController extends Controller
      */
     public function importarCSV(Request $request, $empresa): RedirectResponse
     {
-        $this->authorize('create', ProyeccionVenta::class);
+        abort_unless($request->user()?->can('proyecciones.create'), 403);
 
         $request->validate([
             'csv_file' => 'required|file|mimes:csv,txt|max:2048',
@@ -93,7 +89,7 @@ class ProyeccionVentasController extends Controller
      */
     public function dashboard(Request $request, $empresa): Response
     {
-        $this->authorize('viewAny', ProyeccionVenta::class);
+        abort_unless($request->user()?->can('proyecciones.index'), 403);
 
         $datosVentaHistorico = DatoVentaHistorico::query()
             ->byEmpresa($empresa)
@@ -119,7 +115,7 @@ class ProyeccionVentasController extends Controller
      */
     public function generar(Request $request, $empresa): Response|RedirectResponse
     {
-        $this->authorize('viewAny', ProyeccionVenta::class);
+        abort_unless($request->user()?->can('proyecciones.index'), 403);
 
         $datosVentaHistoricos = DatoVentaHistorico::query()
             ->byEmpresa($empresa)
