@@ -154,9 +154,15 @@ class ImportacionVentasService
      */
     private function validarCabeceras(?array $cabeceras): bool
     {
-        if ($cabeceras === null) {
+        if ($cabeceras === null || count($cabeceras) !== 3) {
             return false;
         }
+
+        // Limpiar BOM UTF-8 de la primera cabecera si existe
+        $cabeceras[0] = str_replace("\xEF\xBB\xBF", '', $cabeceras[0]);
+
+        // Limpiar espacios en blanco de todas las cabeceras
+        $cabeceras = array_map('trim', $cabeceras);
 
         $esperadas = ['Anio', 'Mes', 'Monto_Venta'];
         return $cabeceras === $esperadas;

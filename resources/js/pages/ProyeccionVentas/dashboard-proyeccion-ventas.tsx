@@ -2,6 +2,7 @@
 
 import { CreateDatoHistoricoDialog } from '@/components/proyeccion-ventas/datos-historicos/create-dato-historico-dialog';
 import { getColumns } from '@/components/proyeccion-ventas/datos-historicos/datos-historicos-columns';
+import { ImportCSVDialog } from '@/components/proyeccion-ventas/import-csv-dialog';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/ui/data-table';
 import AppLayout from '@/layouts/app-layout';
@@ -9,7 +10,7 @@ import { BreadcrumbItem } from '@/types';
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
 import { Head } from '@inertiajs/react';
 import axios from 'axios';
-import { CirclePlus, Download } from 'lucide-react';
+import { CirclePlus, Download, Upload } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 const BREADCRUMBS: BreadcrumbItem[] = [
@@ -82,6 +83,7 @@ export default function ProyeccionesShow({
     return (
         <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={pageTitle} />
+            {/* Se removió FlashMessages para evitar toasts múltiples si ya está en el layout */}
             <div className="flex h-full flex-1 flex-col gap-2 overflow-x-auto rounded-xl p-4">
                 {/* Encabezado */}
                 <div className="flex flex-wrap items-center justify-between space-y-2">
@@ -98,17 +100,28 @@ export default function ProyeccionesShow({
                             <span>Descargar plantilla CSV</span>
                         </Button>
                         {permissions.canCreate && (
-                            <CreateDatoHistoricoDialog
-                                empresaId={empresaId}
-                                nextPeriod={nextPeriodData.nextPeriod}
-                                hasData={nextPeriodData.hasData}
-                                onSuccess={fetchNextPeriod}
-                            >
-                                <Button className="cursor-pointer space-x-1">
-                                    <CirclePlus />
-                                    <span>Añadir Dato Manualmente</span>
-                                </Button>
-                            </CreateDatoHistoricoDialog>
+                            <>
+                                <ImportCSVDialog empresaId={empresaId}>
+                                    <Button
+                                        variant="secondary"
+                                        className="cursor-pointer space-x-1"
+                                    >
+                                        <Upload />
+                                        <span>Importar CSV</span>
+                                    </Button>
+                                </ImportCSVDialog>
+                                <CreateDatoHistoricoDialog
+                                    empresaId={empresaId}
+                                    nextPeriod={nextPeriodData.nextPeriod}
+                                    hasData={nextPeriodData.hasData}
+                                    onSuccess={fetchNextPeriod}
+                                >
+                                    <Button className="cursor-pointer space-x-1">
+                                        <CirclePlus />
+                                        <span>Añadir Dato Manualmente</span>
+                                    </Button>
+                                </CreateDatoHistoricoDialog>
+                            </>
                         )}
                     </div>
                 </div>
