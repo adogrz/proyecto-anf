@@ -73,36 +73,6 @@ class CatalogosCuentasController extends Controller
         return redirect()->route('empresas.catalogos.index', $catalogo->empresa_id)->with('success', 'Cuenta actualizada.');
     }
 
-    public function automap(Request $request, CatalogoService $service)
-    {
-        $request->validate([
-            'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv'],
-            'plantilla_catalogo_id' => ['required', 'exists:plantillas_catalogo,id'],
-        ]);
-
-        $resultado = $service->procesarAutomap(
-            $request->file('archivo')->getRealPath(),
-            $request->input('plantilla_catalogo_id')
-        );
-
-        return response()->json($resultado);
-    }
-
-    public function guardarMapeo(Request $request, CatalogoService $service)
-    {
-        $validated = $request->validate([
-            'empresa_id' => 'required|exists:empresas,id',
-            'cuentas' => 'required|array',
-            'cuentas.*.codigo_cuenta' => 'required|string',
-            'cuentas.*.nombre_cuenta' => 'required|string',
-            'cuentas.*.cuenta_base_id' => 'nullable|exists:cuentas_base,id',
-        ]);
-
-        $service->guardarMapeo($validated);
-
-        return response()->json(['message' => 'Mapeo guardado con éxito.']);
-    }
-
     public function destroy(CatalogoCuenta $catalogo)
     {
         $empresaId = $catalogo->empresa_id;

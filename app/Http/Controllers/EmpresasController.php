@@ -26,16 +26,36 @@ class EmpresasController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'nombre' => 'required|string|max:255',
             'sector_id' => 'required|exists:sectores,id',
-            'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
+            'plantilla_catalogo_id' => 'required_without:nombre_plantilla|nullable|exists:plantillas_catalogo,id',
+            'nombre_plantilla' => 'required_without:plantilla_catalogo_id|nullable|string|max:255|unique:plantillas_catalogo,nombre',
         ]);
 
-        $empresa = Empresa::create($request->all());
+        $plantillaId = $validated['plantilla_catalogo_id'];
 
-        // Redirect back with the newly created company object flashed to the session
-        return redirect()->back()->with('success', 'Empresa creada con éxito.')->with('empresa', $empresa);
+        // Si se provee un nombre de plantilla, crearla y usar su ID
+        if (!empty($validated['nombre_plantilla'])) {
+            $nuevaPlantilla = PlantillaCatalogo::create([
+                'nombre' => $validated['nombre_plantilla'],
+            ]);
+            $plantillaId = $nuevaPlantilla->id;
+        }
+
+        $empresa = Empresa::create([
+            'nombre' => $validated['nombre'],
+            'sector_id' => $validated['sector_id'],
+            'plantilla_catalogo_id' => $plantillaId,
+        ]);
+
+        // Cargar la relación para que esté disponible en el objeto de respuesta
+        $empresa->load('plantillaCatalogo');
+
+        // Redirigir con el objeto empresa recién creado
+        return redirect()->back()
+            ->with('success', 'Empresa creada con éxito.')
+            ->with('empresa', $empresa);
     }
 
     public function show(Empresa $empresa)
@@ -71,5 +91,12 @@ class EmpresasController extends Controller
     {
         $empresa->delete();
         return redirect()->route('empresas.index')->with('success', 'Empresa eliminada con éxito.');
+    }
+
+    public function checkCatalogStatus(Empresa $empresa)
+    {
+        return response()->json([
+            'has_catalog' => $empresa->catalogoCuentas()->exists(),
+        ]);
     }
 }
