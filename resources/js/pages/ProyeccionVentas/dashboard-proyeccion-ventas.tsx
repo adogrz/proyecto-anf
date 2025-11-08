@@ -8,7 +8,7 @@ import { DataTable } from '@/components/ui/data-table';
 import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
 import { DatoVentaHistorico } from '@/types/proyeccion-ventas';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import axios from 'axios';
 import { CirclePlus, Download, LineChart, Upload } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -75,15 +75,7 @@ export default function ProyeccionesShow({
     };
 
     const handleGenerarProyecciones = () => {
-        axios
-            .post(`/proyecciones/${empresaId}/generar`)
-            .then(() => {
-                alert('Proyecciones generadas exitosamente 🎉');
-            })
-            .catch((error) => {
-                console.error('Error al generar proyecciones:', error);
-                alert('Error al generar proyecciones.');
-            });
+        router.visit(`/proyecciones/${empresaId}/generar`);
     };
 
     return (

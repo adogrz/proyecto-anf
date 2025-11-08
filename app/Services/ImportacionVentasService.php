@@ -6,6 +6,7 @@ use App\Models\DatoVentaHistorico;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ImportacionVentasService
 {
@@ -296,5 +297,34 @@ class ImportacionVentasService
     public function generarPlantillaCSV(): array
     {
         return ['Anio', 'Mes', 'Monto_Venta'];
+    }
+
+    /**
+     * Descargar plantilla CSV lista para usar.
+     *
+     * @return StreamedResponse
+     */
+    public function descargarPlantillaCSV(): StreamedResponse
+    {
+        $fileName = 'plantilla_ventas_historicas.csv';
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+        ];
+
+        $columnas = $this->generarPlantillaCSV();
+
+        $callback = function () use ($columnas) {
+            $out = fopen('php://output', 'w');
+            // BOM UTF-8 para compatibilidad con Excel
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+            fputcsv($out, $columnas, ';');
+            fclose($out);
+        };
+
+        return response()->stream($callback, 200, $headers);
     }
 }

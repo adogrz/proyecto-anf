@@ -3,6 +3,7 @@
 use App\Http\Controllers\AnalisisController;
 use App\Http\Controllers\CatalogosCuentasController;
 use App\Http\Controllers\CuentasBaseController;
+use App\Http\Controllers\DatoVentaHistoricoController;
 use App\Http\Controllers\EmpresasController;
 use App\Http\Controllers\EstadosFinancierosController;
 use App\Http\Controllers\RatiosController;
@@ -51,13 +52,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Proyecciones (Para 'Gerente Financiero' y 'Administrador')
     Route::middleware('can:proyecciones.index')->group(function () {
         Route::get('/proyecciones/{empresa}', [ProyeccionVentasController::class, 'dashboard'])->name('dashboard.proyecciones');
-        Route::post('/proyecciones/{empresa}/generar', [ProyeccionVentasController::class, 'generar'])->name('proyecciones.generar');
+        Route::get('/proyecciones/{empresa}/generar', [ProyeccionVentasController::class, 'generar'])->name('proyecciones.generar');
 
-        // Gestión de datos históricos
-        Route::get('/proyecciones/{empresa}/next-period', [ProyeccionVentasController::class, 'getNextPeriod'])->name('proyecciones.next-period');
-        Route::post('/proyecciones/{empresa}/datos-historicos', [ProyeccionVentasController::class, 'store'])->name('proyecciones.datos-historicos.store');
-        Route::put('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'update'])->name('proyecciones.datos-historicos.update');
-        Route::delete('/proyecciones/{empresa}/datos-historicos/{id}', [ProyeccionVentasController::class, 'destroy'])->name('proyecciones.datos-historicos.destroy');
+        // Gestión de datos históricos (CRUD)
+        Route::get('/proyecciones/{empresa}/next-period', [DatoVentaHistoricoController::class, 'getNextPeriod'])->name('proyecciones.next-period');
+        Route::post('/proyecciones/{empresa}/datos-historicos', [DatoVentaHistoricoController::class, 'store'])->name('proyecciones.datos-historicos.store');
+        Route::put('/proyecciones/{empresa}/datos-historicos/{id}', [DatoVentaHistoricoController::class, 'update'])->name('proyecciones.datos-historicos.update');
+        Route::delete('/proyecciones/{empresa}/datos-historicos/{id}', [DatoVentaHistoricoController::class, 'destroy'])->name('proyecciones.datos-historicos.destroy');
 
         // Importación CSV
         Route::post('/proyecciones/{empresa}/importar-csv', [ProyeccionVentasController::class, 'importarCSV'])
