@@ -57,6 +57,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/importacion/guardar-mapeo', [CatalogosCuentasController::class, 'guardarMapeo'])->name('importacion.guardarMapeo');
         Route::post('/importacion/previsualizar', [ImportacionController::class, 'previsualizar'])->name('importacion.previsualizar');
         Route::post('/importacion/guardar-estado-financiero', [ImportacionController::class, 'guardarEstadoFinanciero'])->name('importacion.guardarEstadoFinanciero');
+        // Ruta para MOSTRAR la vista del calculador de ratios
+Route::get('/calculo-ratios', [RatiosController::class, 'showCalculoForm'])->name('ratios.calculoForm');
+
+// Ruta para PROCESAR el cálculo de los ratios
+Route::post('/calculo-ratios', [RatiosController::class, 'calculateRatios'])->name('ratios.calculate');
     });
 });
 
