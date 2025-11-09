@@ -141,6 +141,10 @@ export const columns: ColumnDef<Empresa>[] = [
                                 Financieros
                             </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={route('analisis.index', { empresa: empresa.id })}>
+                              <FileText className="mr-2 h-4 w-4" /> Análisis Comparativo</Link>
+                        </DropdownMenuItem>   
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-red-600" asChild>
                             <Link
