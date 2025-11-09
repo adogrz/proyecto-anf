@@ -41,11 +41,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('empresas/{empresa}/check-catalog-status', [EmpresasController::class, 'checkCatalogStatus'])->name('empresas.checkCatalogStatus');
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
+    
+    
 
     // Análisis (Accesible para todos los roles con permisos de lectura)
-    Route::prefix('analisis/{empresa}')->name('analisis.')->middleware('can:informes.index')->group(function () {
+    Route::prefix('analisis')->name('analisis.')->middleware('can:informes.index')->group(function () {
         Route::get('ratios/{anio}', [AnalisisController::class, 'obtenerComparacionRatios'])->name('ratios');
-        Route::get('horizontal', [AnalisisController::class, 'obtenerAnalisisHorizontal'])->name('horizontal');
+        Route::get('{empresa}', [AnalisisController::class, 'obtenerAnalisis'])->name('index');
         Route::get('historial-cuenta', [AnalisisController::class, 'obtenerHistorialCuenta'])->name('historial-cuenta');
     });
 

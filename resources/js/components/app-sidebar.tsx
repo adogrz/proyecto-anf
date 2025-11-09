@@ -151,11 +151,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     permission: "informes.index",
                 },
                 {
-                    title: "Análisis Horizontal",
-                    href: route("analisis.horizontal", { empresa: 1 }),
-                    permission: "informes.index",
-                },
-                {
                     title: "Historial de Cuenta",
                     href: route("analisis.historial-cuenta", { empresa: 1 }),
                     permission: "informes.index",
