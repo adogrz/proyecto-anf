@@ -294,9 +294,10 @@ class ImportacionController extends Controller
             'tipo_estado' => 'required|in:balance_general,estado_resultados',
             'detalles' => 'required|array',
             'detalles.*.codigo_cuenta' => 'required|string|max:255',
+            'detalles.*.cuenta_base_id' => 'required|exists:cuentas_base,id',
             'detalles.*.saldo' => 'required|numeric',
-            'detalles.*.fecha' => 'nullable|date_format:Y-m-d', // For balance_general
-            'detalles.*.periodo' => 'nullable|date_format:Y-m', // For estado_resultados
+            'detalles.*.fecha' => 'nullable',
+            'detalles.*.periodo' => 'nullable',
         ]);
 
         $empresaId = $request->input('empresa_id');
@@ -306,10 +307,14 @@ class ImportacionController extends Controller
 
         try {
             $this->estadoFinancieroService->guardar($empresaId, $anio, $tipoEstado, $detalles);
-            return response()->json(['message' => 'Estado financiero guardado con éxito.']);
+            
+            // Redirect to the dashboard with a success message
+            return redirect()->route('dashboard')->with('success', 'Estado financiero guardado con éxito.');
+
         } catch (\Exception $e) {
             Log::error('Error al guardar estado financiero: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            return response()->json(['message' => 'Error al guardar estado financiero.', 'error' => $e->getMessage()], 500);
+            // Return to the previous page with an error
+            return back()->withErrors(['server_error' => 'No se pudo guardar el estado financiero: ' . $e->getMessage()]);
         }
     }
 
@@ -323,10 +328,10 @@ class ImportacionController extends Controller
         // Preparar cabeceras y ejemplos
         switch ($tipo) {
             case 'balance':
-                $headers = ['codigo_cuenta', 'nombre_cuenta', 'saldo', 'fecha'];
+                $headers = ['codigo_cuenta', 'nombre_cuenta', 'saldo'];
                 $rows = [
-                    ['1.1.1', 'Caja y Bancos', '10000.00', '2025-12-31'],
-                    ['1.1.2', 'Cuentas por Cobrar', '25000.00', '2025-12-31'],
+                    ['1.1.1', 'Caja y Bancos', '10000.00'],
+                    ['1.1.2', 'Cuentas por Cobrar', '25000.00'],
                 ];
                 break;
             case 'resultados':

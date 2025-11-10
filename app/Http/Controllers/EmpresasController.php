@@ -33,7 +33,7 @@ class EmpresasController extends Controller
             'nombre_plantilla' => 'required_without:plantilla_catalogo_id|nullable|string|max:255|unique:plantillas_catalogo,nombre',
         ]);
 
-        $plantillaId = $validated['plantilla_catalogo_id'];
+        $plantillaId = null; // Initialize to null
 
         // Si se provee un nombre de plantilla, crearla y usar su ID
         if (!empty($validated['nombre_plantilla'])) {
@@ -41,6 +41,9 @@ class EmpresasController extends Controller
                 'nombre' => $validated['nombre_plantilla'],
             ]);
             $plantillaId = $nuevaPlantilla->id;
+        } else {
+            // Si no se provee nombre_plantilla, entonces plantilla_catalogo_id debe estar presente (por las reglas de validación)
+            $plantillaId = $validated['plantilla_catalogo_id'];
         }
 
         $empresa = Empresa::create([
@@ -95,8 +98,16 @@ class EmpresasController extends Controller
 
     public function checkCatalogStatus(Empresa $empresa)
     {
+        // Load the plantillaCatalogo relationship
+        $empresa->load('plantillaCatalogo');
+
+        $hasCuentasBase = false;
+        if ($empresa->plantillaCatalogo) {
+            $hasCuentasBase = $empresa->plantillaCatalogo->cuentasBase()->exists();
+        }
+
         return response()->json([
-            'has_catalog' => $empresa->catalogoCuentas()->exists(),
+            'has_catalog' => $hasCuentasBase,
         ]);
     }
 }

@@ -12,7 +12,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileUp, AlertCircle, AlertTriangle } from 'lucide-react';
+import { FileUp, AlertCircle, AlertTriangle, FileDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 // --- Componente para el Paso 1 ---
@@ -374,6 +375,11 @@ const CargarCatalogoBaseStep: React.FC<CargarCatalogoBaseStepProps> = ({ empresa
             />
           <Button onClick={handlePreview} disabled={!archivo || isProcessing} size="lg">
             {isProcessing ? 'Previsualizando...' : 'Previsualizar Catálogo'}
+          </Button>
+          <Button variant="outline" size="lg" asChild>
+            <a href={route('importacion.descargarPlantilla', { tipo: 'catalogo' })}>
+              <FileDown className="mr-2 h-4 w-4" /> Descargar Plantilla
+            </a>
           </Button>
         </div>
 
@@ -794,8 +800,23 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
           setUploadProgress(percentCompleted);
         }
       });
-      toast.success('Validación completada. Revise la previsualización.');
-      onPreview({ data: response.data, anio: parseInt(anio), tipoEstado });
+
+      // Check for errors returned from the backend
+      if (response.data.errores && response.data.errores.length > 0) {
+        setErrors(response.data.errores);
+        toast.error('Se encontraron errores en el archivo.', { description: 'Por favor, revise el registro de errores a continuación.' });
+        // Do NOT proceed to step 4 if there are errors
+        return;
+      }
+
+      // Check if there's actual data to preview
+      if (response.data.datos && response.data.datos.length > 0) {
+        toast.success('Validación completada. Revise la previsualización.');
+        onPreview({ data: response.data.datos, anio: parseInt(anio), tipoEstado }); // Pass only the 'datos' array
+      } else {
+        toast.warning('El archivo se procesó, pero no se encontraron datos válidos para previsualizar.', { description: 'Puede que el archivo esté vacío o las cabeceras no sean correctas.' });
+        // Do NOT proceed to step 4 if no valid data
+      }
     } catch (error: any) {
       if (error.response && error.response.status === 422 && error.response.data.errors) {
         const errorMessages = Array.isArray(error.response.data.errors) ? error.response.data.errors : Object.values(error.response.data.errors).flat();
@@ -852,6 +873,19 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
             <Input id="estado-file-input" type="file" className="hidden" onChange={e => handleFileChange(e.target.files ? e.target.files[0] : null)} accept=".xlsx,.xls,.csv" />
         </div>
 
+        <div className="flex justify-end gap-2">
+            <Button variant="outline" asChild>
+                <a href={route('importacion.descargarPlantilla', { tipo: 'balance' })}>
+                    <FileDown className="mr-2 h-4 w-4" /> Plantilla Balance General
+                </a>
+            </Button>
+            <Button variant="outline" asChild>
+                <a href={route('importacion.descargarPlantilla', { tipo: 'resultados' })}>
+                    <FileDown className="mr-2 h-4 w-4" /> Plantilla Estado de Resultados
+                </a>
+            </Button>
+        </div>
+
         {isProcessing && <Progress value={uploadProgress} className="w-full" />}
 
         {errors.length > 0 && (
@@ -890,7 +924,8 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
       empresa_id: empresaId,
       anio: previewData.anio,
       tipo_estado: previewData.tipoEstado,
-      detalles: previewData.data,
+      // Only send valid data for saving
+      detalles: previewData.data.filter((item: any) => item.status !== 'error'),
     };
 
     router.post(route('importacion.guardarEstadoFinanciero'), postData, {
@@ -911,25 +946,66 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
               <TableRow>
                 <TableHead>Cuenta (Mapeada a Cuenta Base)</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="text-center">Estado</TableHead> {/* New column */}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {previewData.data.map((item: any, index: number) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    <div className="font-medium">{item.nombre_cuenta}</div>
-                    <div className="text-sm text-muted-foreground">Mapeada a: {item.cuenta_base_nombre}</div>
-                  </TableCell>
-                  <TableCell className="text-right">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.valor)}</TableCell>
+              {Array.isArray(previewData.data) && previewData.data.map((item: any, index: number) => {
+                let rowClass = '';
+                let statusIcon = null;
+                let statusText = '';
+
+                if (item.status === 'error') {
+                  rowClass = 'bg-red-100/50 dark:bg-red-900/30';
+                  statusIcon = <AlertCircle className="h-4 w-4 text-red-600" />;
+                  statusText = 'Error';
+                } else if (item.status === 'warning') {
+                  rowClass = 'bg-yellow-100/50 dark:bg-yellow-900/30';
+                  statusIcon = <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+                  statusText = 'Advertencia';
+                } else {
+                  statusText = 'Válido';
+                }
+
+                return (
+                  <TableRow key={index} className={rowClass}>
+                    <TableCell>
+                      <div className="font-medium">{item.codigo_cuenta} - {item.nombre_cuenta}</div>
+                      <div className="text-sm text-muted-foreground">Mapeada a: {item.cuenta_base_nombre}</div>
+                      {item.row_errors && item.row_errors.length > 0 && (
+                        <div className="text-xs text-red-600 mt-1">
+                          {item.row_errors.map((err: string, i: number) => <p key={i}>- {err}</p>)}
+                        </div>
+                      )}
+                      {item.row_warnings && item.row_warnings.length > 0 && (
+                        <div className="text-xs text-yellow-600 mt-1">
+                          {item.row_warnings.map((warn: string, i: number) => <p key={i}>- {warn}</p>)}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.saldo)}</TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {item.status === 'error' && <Badge variant="destructive">{statusIcon} {statusText}</Badge>}
+                        {item.status === 'warning' && <Badge variant="yellow">{statusIcon} {statusText}</Badge>}
+                        {item.status === 'valid' && <Badge variant="green">{statusText}</Badge>}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {!Array.isArray(previewData.data) || previewData.data.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3} className="text-center text-muted-foreground">No hay datos para previsualizar o el formato es incorrecto.</TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button variant="outline" onClick={onBack}>Atrás</Button>
-        <Button onClick={handleConfirm} disabled={isSaving}>
+        <Button onClick={handleConfirm} disabled={isSaving || previewData.data.some((item: any) => item.status === 'error')}>
           {isSaving ? 'Guardando...' : 'Confirmar y Guardar'}
         </Button>
       </CardFooter>

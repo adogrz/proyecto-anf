@@ -201,12 +201,15 @@ class CatalogoService
 
             // Upsert accounts from file
             foreach ($collection as $row) {
-                if (empty($row[0]) || empty($row[1])) {
+                $filaNorm = $this->normalizeRowKeys($row->toArray()); // Normalize keys for consistent access
+
+                $codigo = trim((string)($filaNorm['codigo_cuenta'] ?? $filaNorm['codigo'] ?? ''));
+                $nombre = trim((string)($filaNorm['nombre_cuenta'] ?? $filaNorm['nombre'] ?? ''));
+
+                if (empty($codigo) || empty($nombre)) {
+                    // Log::warning("importarCuentasBase: Skipping row due to empty code or name", ['row' => $row->toArray()]);
                     continue;
                 }
-
-                $codigo = (string) $row[0];
-                $nombre = (string) $row[1];
                 $fileAccountCodes[$codigo] = true;
 
                 $naturaleza = 'DEUDORA';

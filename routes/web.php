@@ -82,7 +82,7 @@ Route::middleware(['auth'])->group(function () {
     // Rutas de importación
     Route::prefix('importacion')->group(function () {
         Route::get('plantilla/{tipo?}', [ImportacionController::class, 'descargarPlantilla'])
-            ->name('importacion.plantilla');
+            ->name('importacion.descargarPlantilla');
         Route::get('documentacion', [ImportacionController::class, 'documentacion'])
             ->name('importacion.documentacion');
     });

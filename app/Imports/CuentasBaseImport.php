@@ -4,8 +4,9 @@ namespace App\Imports;
 
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithHeadingRow; // Import the trait
 
-class CuentasBaseImport implements ToCollection
+class CuentasBaseImport implements ToCollection, WithHeadingRow // Implement WithHeadingRow
 {
     /**
     * @param Collection $collection
