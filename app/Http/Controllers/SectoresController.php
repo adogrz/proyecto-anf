@@ -31,11 +31,13 @@ class SectoresController extends Controller
         return redirect()->route('sectores.index')->with('success', 'Sector creado con éxito.');
     }
 
-    public function show(Sector $sector)
-    {
+    public function show(Sector $sectore)
+    {   
+        $sectore->load('ratios');
         return Inertia::render('Administracion/Sectores/Show', [
-            'sector' => $sector,
+            'sector' => $sectore,
         ]);
+        
     }
 
     public function edit(Sector $sector)

@@ -11,6 +11,7 @@ interface IndexProps {
 }
 
 export default function SectoresIndex({ sectores }: IndexProps) {
+    console.log(sectores);
     return (
         <AppLayout>
             <Head title="Gestión de Sectores" />

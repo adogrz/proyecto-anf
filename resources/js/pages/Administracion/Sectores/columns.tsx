@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Link } from "@inertiajs/react"
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header"
+import { route } from 'ziggy-js';
 
 export interface Sector {
     id: number;

@@ -6,6 +6,7 @@ use App\Http\Controllers\CuentasBaseController;
 use App\Http\Controllers\DatoVentaHistoricoController;
 use App\Http\Controllers\EmpresasController;
 use App\Http\Controllers\EstadosFinancierosController;
+use App\Http\Controllers\RatioAlmanaqueController;
 use App\Http\Controllers\SectoresController;
 use App\Http\Controllers\Administracion\PlantillaCatalogoController;
 use App\Http\Controllers\ImportacionController;
@@ -25,6 +26,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Administración (Solo para rol 'Administrador')
     Route::middleware('can:sectores.index')->group(function () {
         Route::resource('sectores', SectoresController::class);
+        Route::get('/administracion/sectores/{sector}/ratios', [RatioAlmanaqueController::class, 'edit'])
+        ->name('sectores.ratios.edit');
+        Route::post('/administracion/sectores/{sector}/ratios/guardar', [RatioAlmanaqueController::class, 'guardar'])
+        ->name('sectores.ratios.guardar');
     });
 
     Route::middleware('can:cuentas-base.index')->group(function () {
@@ -40,8 +45,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('empresas/{empresa}/check-catalog-status', [EmpresasController::class, 'checkCatalogStatus'])->name('empresas.checkCatalogStatus');
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
-    
-    
+
+
 
     // Análisis (Accesible para todos los roles con permisos de lectura)
     Route::prefix('analisis')->name('analisis.')->middleware('can:informes.index')->group(function () {
@@ -79,5 +84,5 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';
