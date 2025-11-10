@@ -100,12 +100,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     href: route("sectores.index"),
                     permission: "sectores.index",
                 },
-
-                {
-                    title: "Cuentas Base",
-                    href: route("cuentas-base.index"),
-                    permission: "cuentas-base.index",
-                },
                 {
                     title: "Plantillas de Catálogo",
                     href: route("plantillas-catalogo.index"),

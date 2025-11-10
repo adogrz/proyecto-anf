@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Empresa;
 use App\Models\PlantillaCatalogo;
 use App\Services\CatalogoService;
+use App\Services\EstadoFinancieroService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,16 +20,18 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ImportacionController extends Controller
 {
     protected $catalogoService;
+    protected $estadoFinancieroService;
 
-    public function __construct(CatalogoService $catalogoService)
+    public function __construct(CatalogoService $catalogoService, EstadoFinancieroService $estadoFinancieroService)
     {
         $this->catalogoService = $catalogoService;
+        $this->estadoFinancieroService = $estadoFinancieroService;
     }
 
     public function wizard()
     {
         return Inertia::render('Importacion/Wizard', [
-            'plantillas' => \App\Models\PlantillaCatalogo::all(),
+            'plantillas' => \App\Models\PlantillaCatalogo::with('cuentasBase')->get(),
             'empresas' => \App\Models\Empresa::with('sector')->get(), // Incluir relación sector
             'sectores' => \App\Models\Sector::orderBy('nombre')->get(),
         ]);
@@ -162,6 +165,7 @@ class ImportacionController extends Controller
                     'success' => true,
                     'datos' => $result['datos'],
                     'errores' => $result['errores'],
+                    'warnings' => $result['warnings'] ?? [],
                     'stats' => $result['stats'] ?? [],
                 ]);
 
@@ -196,6 +200,116 @@ class ImportacionController extends Controller
                     'line' => $e->getLine()
                 ] : null
             ], 500);
+        }
+    }
+
+    public function previsualizarEstadoFinanciero(Request $request)
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:xlsx,xls,csv|max:10240', // Max 10MB
+            'empresa_id' => 'required|exists:empresas,id',
+            'anio' => 'required|integer|min:1900|max:' . (date('Y') + 10),
+            'tipo_estado' => 'required|in:balance_general,estado_resultados',
+        ]);
+
+        $file = $request->file('archivo');
+        $empresaId = $request->input('empresa_id');
+        $anio = $request->input('anio');
+        $tipoEstado = $request->input('tipo_estado');
+
+        $resultado = $this->estadoFinancieroService->previsualizar($file, $empresaId, $anio, $tipoEstado);
+
+        return response()->json($resultado);
+    }
+
+    public function guardarMapeo(Request $request)
+    {
+        $request->validate([
+            'empresa_id' => 'required|exists:empresas,id',
+            'cuentas' => 'required|array',
+            'cuentas.*.codigo_cuenta' => 'required|string|max:255',
+            'cuentas.*.nombre_cuenta' => 'required|string|max:255',
+            'cuentas.*.cuenta_base_id' => 'nullable|exists:cuentas_base,id',
+        ]);
+
+        $empresaId = $request->input('empresa_id');
+        $cuentas = $request->input('cuentas');
+
+        $this->catalogoService->guardarMapeo($empresaId, $cuentas);
+
+        return response()->json(['message' => 'Mapeo guardado con éxito.']);
+    }
+
+    public function previsualizarCatalogoBase(Request $request)
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        try {
+            $file = $request->file('archivo');
+            $resultado = $this->catalogoService->procesarCatalogoBasePreview($file->getRealPath());
+
+            return response()->json($resultado);
+        } catch (\Exception $e) {
+            Log::error("Error en previsualizarCatalogoBase: " . $e->getMessage());
+            return response()->json([
+                'errores' => ['Se produjo un error inesperado al procesar el archivo.'],
+                'warnings' => [],
+                'datos' => [],
+            ], 500);
+        }
+    }
+
+    public function importarCatalogoBase(Request $request)
+    {
+        $request->validate([
+            'archivo' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+            'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
+        ]);
+
+        try {
+            $file = $request->file('archivo');
+            $plantillaId = $request->input('plantilla_catalogo_id');
+            $result = $this->catalogoService->importarCuentasBase($file, $plantillaId);
+
+            return response()->json([
+                'message' => 'Catálogo base importado con éxito.',
+                'warnings' => $result['warnings']
+            ]);
+        } catch (\Exception $e) {
+            Log::error("Error en importarCatalogoBase: " . $e->getMessage());
+            return response()->json([
+                'message' => 'Se produjo un error al importar el catálogo base.',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function guardarEstadoFinanciero(Request $request)
+    {
+        $request->validate([
+            'empresa_id' => 'required|exists:empresas,id',
+            'anio' => 'required|integer|min:1900|max:' . (date('Y') + 10),
+            'tipo_estado' => 'required|in:balance_general,estado_resultados',
+            'detalles' => 'required|array',
+            'detalles.*.codigo_cuenta' => 'required|string|max:255',
+            'detalles.*.saldo' => 'required|numeric',
+            'detalles.*.fecha' => 'nullable|date_format:Y-m-d', // For balance_general
+            'detalles.*.periodo' => 'nullable|date_format:Y-m', // For estado_resultados
+        ]);
+
+        $empresaId = $request->input('empresa_id');
+        $anio = $request->input('anio');
+        $tipoEstado = $request->input('tipo_estado');
+        $detalles = $request->input('detalles');
+
+        try {
+            $this->estadoFinancieroService->guardar($empresaId, $anio, $tipoEstado, $detalles);
+            return response()->json(['message' => 'Estado financiero guardado con éxito.']);
+        } catch (\Exception $e) {
+            Log::error('Error al guardar estado financiero: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json(['message' => 'Error al guardar estado financiero.', 'error' => $e->getMessage()], 500);
         }
     }
 
@@ -303,33 +417,7 @@ class ImportacionController extends Controller
         ]);
     }
 
-    /**
-     * Valida la estructura del archivo según el tipo
-     */
-    private function validarEstructura($file, $tipo)
-    {
-        $estructurasRequeridas = [
-            'catalogo' => ['codigo_cuenta', 'nombre_cuenta'],
-            'balance' => ['codigo_cuenta', 'saldo', 'fecha'],
-            'resultados' => ['codigo_cuenta', 'saldo', 'periodo']
-        ];
 
-        // Leer primera fila para validar estructura
-        $reader = \Maatwebsite\Excel\Facades\Excel::toArray(new class {}, $file)[0];
-        if (empty($reader) || !isset($reader[0])) {
-            throw new \Exception('Archivo vacío o estructura inválida');
-        }
-
-        $cabeceras = array_keys($reader[0]);
-        $requeridas = $estructurasRequeridas[$tipo] ?? [];
-        
-        $faltantes = array_diff($requeridas, $cabeceras);
-        if (!empty($faltantes)) {
-            throw new \Exception('Faltan columnas requeridas: ' . implode(', ', $faltantes));
-        }
-
-        return true;
-    }
 
     /**
      * Ruta para la documentación de formatos

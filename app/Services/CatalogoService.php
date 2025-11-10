@@ -6,18 +6,15 @@ use App\Models\CatalogoCuenta;
 use App\Models\CuentaBase;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Imports\HeadingRowFormatter;
+
 use Illuminate\Support\Facades\Log;
 
 class CatalogoService
 {
     public function procesarAutomap(string $filePath, int $plantillaId): array
     {
-        // Fix: 'custom' no existe en HeadingRowFormatter -> usar 'none' o eliminar.
-        // Usamos 'none' para preservar las cabeceras tal cual y normalizarlas después.
-        HeadingRowFormatter::default('none');
-
         $errores = [];
+        $warnings = [];
 
         try {
             if (!file_exists($filePath)) {
@@ -31,32 +28,33 @@ class CatalogoService
                 throw new \Exception("Archivo vacío o no se pudo leer.");
             }
 
-            // Obtener cuentas base indexadas por código (según migración: 'codigo')
-            $cuentasBase = CuentaBase::where('plantilla_catalogo_id', $plantillaId)
-                ->get()
-                ->keyBy('codigo');
-
+            $cuentasBase = CuentaBase::where('plantilla_catalogo_id', $plantillaId)->get();
             $mapeoResultado = [];
             $codigosUnicos = [];
 
             foreach ($filas as $index => $fila) {
-                // Normalizar cabeceras y valores para tolerar variantes
                 $filaNorm = $this->normalizeRowKeys($fila);
-
                 $resultado = $this->procesarFila($filaNorm, $index + 2, $cuentasBase, $codigosUnicos);
 
                 if (isset($resultado['error'])) {
                     $errores[] = $resultado['error'];
                     continue;
                 }
-
-                $codigosUnicos[] = $resultado['datos']['codigo'];
-                $mapeoResultado[] = $resultado['datos'];
+                
+                if (isset($resultado['warning'])) {
+                    $warnings[] = $resultado['warning'];
+                    continue;
+                }
+                
+                if (isset($resultado['datos'])) {
+                    $mapeoResultado[] = $resultado['datos'];
+                }
             }
 
             return [
                 'datos' => $mapeoResultado,
                 'errores' => $errores,
+                'warnings' => $warnings,
                 'stats' => [
                     'total' => count($mapeoResultado),
                     'mapeadas' => count(array_filter($mapeoResultado, fn($item) => !is_null($item['cuenta_base_id']))),
@@ -80,46 +78,27 @@ class CatalogoService
         return $out;
     }
 
-    private function procesarFila(array $fila, int $numeroFila, $cuentasBase, array $codigosUnicos): array
+    private function procesarFila(array $fila, int $numeroFila, $cuentasBase, array &$codigosUnicos): array
     {
         // Soporta variantes de nombre de columna
         $codigo = trim((string)($fila['codigo'] ?? $fila['codigo_cuenta'] ?? $fila['code'] ?? ''));
         $nombre = trim((string)($fila['nombre'] ?? $fila['nombre_cuenta'] ?? $fila['account_name'] ?? ''));
-        $tipoCuenta = strtoupper(trim((string)($fila['tipo_cuenta'] ?? $fila['tipo'] ?? '')));
-        $naturaleza = strtoupper(trim((string)($fila['naturaleza'] ?? $fila['nature'] ?? $fila['nat'] ?? '')));
-
+        
         if ($codigo === '' || $nombre === '') {
-            return ['error' => "Fila {$numeroFila}: 'codigo' y 'nombre' son obligatorios."];
+            return ['error' => "Fila {$numeroFila}: 'codigo_cuenta' y 'nombre_cuenta' son obligatorios."];
         }
 
-        if (in_array($codigo, $codigosUnicos, true)) {
-            return ['error' => "Fila {$numeroFila}: Código duplicado '{$codigo}'."];
+        if (isset($codigosUnicos[$codigo])) {
+            return ['warning' => "Fila {$numeroFila}: Código de cuenta '{$codigo}' duplicado. Se omitirá esta fila."];
         }
+        $codigosUnicos[$codigo] = true;
 
-        // Normalizar valores de tipo/naturaleza aceptados por la migración
-        if ($tipoCuenta === '') {
-            // asumir DETALLE si tiene subcódigos, AGRUPACION si termina en .0 o sin subniveles
-            $tipoCuenta = (strpos($codigo, '.') !== false) ? 'DETALLE' : 'AGRUPACION';
-        } else {
-            $mapTipo = ['AGRUPACION' => 'AGRUPACION', 'AGRUP.' => 'AGRUPACION', 'DETALLE' => 'DETALLE', 'DET.' => 'DETALLE'];
-            $tipoCuenta = $mapTipo[$tipoCuenta] ?? $tipoCuenta;
-        }
-
-        if ($naturaleza === '') {
-            // intentar inferir por rango de código (simple heurística) - no perfecta
-            $naturaleza = 'DEUDORA';
-        } else {
-            $mapNat = ['D' => 'DEUDORA', 'H' => 'ACREEDORA', 'DEUDORA' => 'DEUDORA', 'ACREEDORA' => 'ACREEDORA'];
-            $naturaleza = $mapNat[$naturaleza] ?? $naturaleza;
-        }
-
-        $cuentaBase = $cuentasBase->get($codigo);
+        // Lógica de mapeo mejorada
+        $cuentaBase = $this->findBestMatch($codigo, $nombre, $cuentasBase);
 
         return ['datos' => [
-            'codigo' => $codigo,
-            'nombre' => $nombre,
-            'tipo_cuenta' => $tipoCuenta,
-            'naturaleza' => $naturaleza,
+            'codigo_cuenta' => $codigo,
+            'nombre_cuenta' => $nombre,
             'cuenta_base_id' => $cuentaBase ? $cuentaBase->id : null,
             'cuenta_base_nombre' => $cuentaBase ? $cuentaBase->nombre : null,
         ]];
@@ -136,21 +115,91 @@ class CatalogoService
         foreach ($validatedData['cuentas'] as $cuenta) {
             CatalogoCuenta::create([
                 'empresa_id' => $empresaId,
-                'codigo_cuenta' => $cuenta['codigo_cuenta'],
-                'nombre_cuenta' => $cuenta['nombre_cuenta'],
+                'codigo_cuenta' => $cuenta['codigo'],
+                'nombre_cuenta' => $cuenta['nombre'],
                 'cuenta_base_id' => $cuenta['cuenta_base_id'],
             ]);
         }
     }
 
-    public function importarCuentasBase(\Illuminate\Http\UploadedFile $file, int $plantillaCatalogoId): void
+    public function procesarCatalogoBasePreview(string $filePath): array
+    {
+        $import = new class implements WithHeadingRow {};
+        $filas = Excel::toArray($import, $filePath)[0] ?? [];
+
+        if (empty($filas)) {
+            throw new \Exception("Archivo vacío o no se pudo leer.");
+        }
+
+        $accountsData = [];
+        $parentCodes = [];
+        $codigosUnicos = [];
+        $errors = [];
+        $warnings = [];
+
+        foreach ($filas as $index => $fila) {
+            $filaNorm = $this->normalizeRowKeys($fila);
+            $codigo = trim((string)($filaNorm['codigo_cuenta'] ?? $filaNorm['codigo'] ?? ''));
+            $nombre = trim((string)($filaNorm['nombre_cuenta'] ?? $filaNorm['nombre'] ?? ''));
+
+            if (empty($codigo) || empty($nombre)) {
+                $errors[] = "Fila " . ($index + 2) . ": El código y el nombre son obligatorios.";
+                continue;
+            }
+
+            if (isset($codigosUnicos[$codigo])) {
+                $warnings[] = "Fila " . ($index + 2) . ": Código '{$codigo}' duplicado. Se omitirá.";
+                continue;
+            }
+            $codigosUnicos[$codigo] = true;
+
+            $parentCode = null;
+            if (str_contains($codigo, '.')) {
+                $parts = explode('.', $codigo);
+                array_pop($parts);
+                $parentCode = implode('.', $parts);
+            } elseif (strlen($codigo) > 1) {
+                $parentCode = substr($codigo, 0, -1);
+            }
+
+            if ($parentCode) {
+                $parentCodes[$parentCode] = true;
+            }
+            
+            $accountsData[] = [
+                'codigo' => $codigo,
+                'nombre' => $nombre,
+                'naturaleza' => $this->determinarNaturalezaCuenta($codigo),
+                'parent_code' => $parentCode,
+            ];
+        }
+
+        $previewData = [];
+        foreach ($accountsData as $account) {
+            $previewData[] = [
+                'codigo' => $account['codigo'],
+                'nombre' => $account['nombre'],
+                'naturaleza' => $account['naturaleza'],
+                'tipo_cuenta' => isset($parentCodes[$account['codigo']]) ? 'AGRUPACION' : 'DETALLE',
+            ];
+        }
+
+        return ['datos' => $previewData, 'errores' => $errors, 'warnings' => $warnings];
+    }
+
+    public function importarCuentasBase(\Illuminate\Http\UploadedFile $file, int $plantillaCatalogoId): array
     {
         $collection = Excel::toCollection(new \App\Imports\CuentasBaseImport, $file)->first();
+        $warnings = [];
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($collection, $plantillaCatalogoId) {
-            // 1. Prepare data and identify parents
-            $accountsData = [];
-            $parentCodes = [];
+        \Illuminate\Support\Facades\DB::transaction(function () use ($collection, $plantillaCatalogoId, &$warnings) {
+            $existingAccounts = CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogoId)
+                ->get()
+                ->keyBy('codigo');
+            
+            $fileAccountCodes = [];
+
+            // Upsert accounts from file
             foreach ($collection as $row) {
                 if (empty($row[0]) || empty($row[1])) {
                     continue;
@@ -158,73 +207,79 @@ class CatalogoService
 
                 $codigo = (string) $row[0];
                 $nombre = (string) $row[1];
+                $fileAccountCodes[$codigo] = true;
 
-                // Determine parent code
-                $parentCode = null;
-                if (str_contains($codigo, '.')) {
-                    $parts = explode('.', $codigo);
-                    array_pop($parts);
-                    $parentCode = implode('.', $parts);
-                } elseif (strlen($codigo) > 2) {
-                    $parentCode = substr($codigo, 0, -2);
-                } elseif (strlen($codigo) > 1) {
-                     $parentCode = substr($codigo, 0, -1);
-                }
-
-
-                if ($parentCode) {
-                    $parentCodes[$parentCode] = true;
-                }
-
-                // Determine nature
-                $naturaleza = 'DEUDORA'; // Default
+                $naturaleza = 'DEUDORA';
                 $firstDigit = substr($codigo, 0, 1);
                 if (in_array($firstDigit, ['2', '3', '5'])) {
                     $naturaleza = 'ACREEDORA';
                 }
 
-                $accountsData[] = [
-                    'codigo' => $codigo,
-                    'nombre' => $nombre,
-                    'naturaleza' => $naturaleza,
-                    'parent_code' => $parentCode,
-                    'plantilla_catalogo_id' => $plantillaCatalogoId,
-                ];
+                CuentaBase::updateOrCreate(
+                    [
+                        'plantilla_catalogo_id' => $plantillaCatalogoId,
+                        'codigo' => $codigo,
+                    ],
+                    [
+                        'nombre' => $nombre,
+                        'naturaleza' => $naturaleza,
+                        'tipo_cuenta' => 'DETALLE', // Default to DETALLE, will be updated later
+                    ]
+                );
             }
 
-            // 2. Determine account type and prepare for insertion
-            $accountsToInsert = [];
-            foreach ($accountsData as $account) {
-                $accountsToInsert[] = [
-                    'plantilla_catalogo_id' => $account['plantilla_catalogo_id'],
-                    'parent_id' => null, // Set later
-                    'codigo' => $account['codigo'],
-                    'nombre' => $account['nombre'],
-                    'tipo_cuenta' => isset($parentCodes[$account['codigo']]) ? 'AGRUPACION' : 'DETALLE',
-                    'naturaleza' => $account['naturaleza'],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ];
-            }
+            // Delete old accounts that are not in the new file
+            $accountsToDelete = $existingAccounts->filter(function ($account, $codigo) use ($fileAccountCodes) {
+                return !isset($fileAccountCodes[$codigo]);
+            });
 
-            // 3. Clear old accounts and insert new ones
-            CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogoId)->delete();
-            CuentaBase::insert($accountsToInsert);
-
-            // 4. Create a code -> id map
-            $codeIdMap = CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogoId)
-                ->pluck('id', 'codigo');
-
-            // 5. Update parent_id
-            foreach ($accountsData as $account) {
-                if ($account['parent_code'] && isset($codeIdMap[$account['codigo']]) && isset($codeIdMap[$account['parent_code']])) {
-                    $id = $codeIdMap[$account['codigo']];
-                    $parentId = $codeIdMap[$account['parent_code']];
-
-                    CuentaBase::where('id', $id)->update(['parent_id' => $parentId]);
+            foreach ($accountsToDelete as $account) {
+                $isUsed = \App\Models\DetalleEstado::where('cuenta_base_id', $account->id)->exists();
+                if ($isUsed) {
+                    $warnings[] = "La cuenta '{$account->codigo} - {$account->nombre}' no se pudo eliminar porque está en uso en un estado financiero.";
+                } else {
+                    // Also need to check if it's a parent to other accounts
+                    $isParent = CuentaBase::where('parent_id', $account->id)->exists();
+                    if ($isParent) {
+                         $warnings[] = "La cuenta '{$account->codigo} - {$account->nombre}' no se pudo eliminar porque es una cuenta padre. Elimine primero las cuentas hijas.";
+                    } else {
+                        $account->delete();
+                    }
                 }
             }
+
+            // Rebuild hierarchy
+            $allAccounts = CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogoId)->get();
+            $codeIdMap = $allAccounts->pluck('id', 'codigo');
+            $parentCodes = [];
+
+            foreach ($allAccounts as $account) {
+                $parentCode = null;
+                if (str_contains($account->codigo, '.')) {
+                    $parts = explode('.', $account->codigo);
+                    array_pop($parts);
+                    $parentCode = implode('.', $parts);
+                } elseif (strlen($account->codigo) > 1) {
+                    $parentCode = substr($account->codigo, 0, -1);
+                }
+
+                if ($parentCode && isset($codeIdMap[$parentCode])) {
+                    $parentCodes[$parentCode] = true;
+                    $account->parent_id = $codeIdMap[$parentCode];
+                    $account->save();
+                }
+            }
+
+            // Update account types
+            CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogoId)->update(['tipo_cuenta' => 'DETALLE']);
+            if (!empty($parentCodes)) {
+                CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogoId)
+                    ->whereIn('codigo', array_keys($parentCodes))
+                    ->update(['tipo_cuenta' => 'AGRUPACION']);
+            }
         });
+
+        return ['warnings' => $warnings];
     }
 
     public function validarPrevisualizacion(array $datos): array
@@ -283,5 +338,64 @@ class CatalogoService
         return (str_contains($codigo, '.') || strlen($codigo) > 2) 
             ? 'DETALLE' 
             : 'AGRUPACION';
+    }
+
+    /**
+     * Encuentra la mejor coincidencia para una cuenta de usuario en las cuentas base.
+     * @param string $userCodigo
+     * @param string $userNombre
+     * @param \Illuminate\Support\Collection $cuentasBase
+     * @return \App\Models\CuentaBase|null
+     */
+    private function findBestMatch(string $userCodigo, string $userNombre, $cuentasBase)
+    {
+        $bestMatch = null;
+        $highestScore = 0;
+
+        foreach ($cuentasBase as $cb) {
+            $score = 0;
+            // Ponderación de puntajes
+            $codigoScore = $this->stringSimilarity($userCodigo, $cb->codigo);
+            $nombreScore = $this->stringSimilarity(strtoupper($userNombre), strtoupper($cb->nombre));
+
+            // Exact match de código es un gran plus
+            if ($userCodigo === $cb->codigo) {
+                $score += 100;
+            } else {
+                $score += $codigoScore * 0.4; // 40% del puntaje por similitud de código
+            }
+
+            $score += $nombreScore * 0.6; // 60% del puntaje por similitud de nombre
+
+            if ($score > $highestScore) {
+                $highestScore = $score;
+                $bestMatch = $cb;
+            }
+        }
+
+        // Umbral de confianza: si el puntaje no es suficientemente alto, no lo consideramos una coincidencia.
+        if ($highestScore > 70) { // Umbral del 70%
+            return $bestMatch;
+        }
+
+        return null;
+    }
+
+    /**
+     * Calcula la similitud entre dos strings y devuelve un porcentaje.
+     * @param string $str1
+     * @param string $str2
+     * @return float
+     */
+    private function stringSimilarity(string $str1, string $str2): float
+    {
+        $len1 = strlen($str1);
+        $len2 = strlen($str2);
+        if ($len1 === 0 || $len2 === 0) {
+            return 0;
+        }
+        $maxLen = max($len1, $len2);
+        $lev = levenshtein($str1, $str2);
+        return (($maxLen - $lev) / $maxLen) * 100;
     }
 }
