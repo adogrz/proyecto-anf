@@ -16,11 +16,10 @@ return new class extends Migration
             $table->foreignId('sector_id')->constrained('sectores')->onDelete('cascade');
             $table->string('nombre_ratio');
             $table->decimal('valor_referencia', 15, 4);
-            $table->unsignedSmallInteger('anio');
             $table->string('fuente', 200)->nullable();
             $table->timestamps();
 
-            $table->unique(['sector_id', 'nombre_ratio', 'anio'], 'unique_ratio_sector');
+            $table->unique(['sector_id', 'nombre_ratio'], 'unique_ratio_sector');
         });
     }
 
