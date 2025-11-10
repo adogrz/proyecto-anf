@@ -17,13 +17,11 @@ class RatioSector extends Model
         'sector_id',
         'nombre_ratio',
         'valor_referencia',
-        'anio',
         'fuente',
     ];
 
     protected $casts = [
         'valor_referencia' => 'decimal:4',
-        'anio' => 'integer'
     ];
 
     // Relaciones
