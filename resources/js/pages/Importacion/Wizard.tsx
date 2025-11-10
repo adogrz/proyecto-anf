@@ -917,6 +917,10 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
 // --- Componente para el Paso 4 ---
 const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack: () => void; }> = ({ previewData, empresaId, onBack }) => {
   const [isSaving, setIsSaving] = React.useState(false);
+  const [nameFilter, setNameFilter] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState('all');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 10; // You can adjust this value
 
   const handleConfirm = () => {
     setIsSaving(true);
@@ -933,6 +937,34 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
     });
   };
 
+  // Filtering Logic
+  const filteredData = React.useMemo(() => {
+    if (!Array.isArray(previewData.data)) return [];
+
+    return previewData.data.filter((item: any) => {
+      const matchesName = nameFilter === '' || 
+                          item.codigo_cuenta.toLowerCase().includes(nameFilter.toLowerCase()) ||
+                          item.nombre_cuenta.toLowerCase().includes(nameFilter.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+
+      return matchesName && matchesStatus;
+    });
+  }, [previewData.data, nameFilter, statusFilter]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [nameFilter, statusFilter]);
+
+
   return (
     <Card>
       <CardHeader>
@@ -940,67 +972,101 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
         <CardDescription>Revise los datos interpretados del estado financiero antes de guardarlos permanentemente en el sistema.</CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Filter Controls */}
+        <div className="flex items-center gap-4 mb-4">
+            <Input 
+                placeholder="Filtrar por código o nombre..." 
+                value={nameFilter} 
+                onChange={e => setNameFilter(e.target.value)} 
+                className="max-w-sm" 
+            />
+            <div className="flex items-center space-x-2">
+                <Label htmlFor="status-filter">Estado:</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger id="status-filter" className="w-[180px]">
+                        <SelectValue placeholder="Filtrar por estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="valid">Válido</SelectItem>
+                        <SelectItem value="warning">Advertencia</SelectItem>
+                        <SelectItem value="error">Error</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+
         <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Cuenta (Mapeada a Cuenta Base)</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-center">Estado</TableHead> {/* New column */}
+                <TableHead className="text-center">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {Array.isArray(previewData.data) && previewData.data.map((item: any, index: number) => {
-                let rowClass = '';
-                let statusIcon = null;
-                let statusText = '';
+              {paginatedData.length > 0 ? (
+                paginatedData.map((item: any, index: number) => {
+                  let rowClass = '';
+                  let statusIcon = null;
+                  let statusText = '';
 
-                if (item.status === 'error') {
-                  rowClass = 'bg-red-100/50 dark:bg-red-900/30';
-                  statusIcon = <AlertCircle className="h-4 w-4 text-red-600" />;
-                  statusText = 'Error';
-                } else if (item.status === 'warning') {
-                  rowClass = 'bg-yellow-100/50 dark:bg-yellow-900/30';
-                  statusIcon = <AlertTriangle className="h-4 w-4 text-yellow-600" />;
-                  statusText = 'Advertencia';
-                } else {
-                  statusText = 'Válido';
-                }
+                  if (item.status === 'error') {
+                    rowClass = 'bg-red-100/50 dark:bg-red-900/30';
+                    statusIcon = <AlertCircle className="h-4 w-4 text-red-600" />;
+                    statusText = 'Error';
+                  } else if (item.status === 'warning') {
+                    rowClass = 'bg-yellow-100/50 dark:bg-yellow-900/30';
+                    statusIcon = <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+                    statusText = 'Advertencia';
+                  } else {
+                    statusText = 'Válido';
+                  }
 
-                return (
-                  <TableRow key={index} className={rowClass}>
-                    <TableCell>
-                      <div className="font-medium">{item.codigo_cuenta} - {item.nombre_cuenta}</div>
-                      <div className="text-sm text-muted-foreground">Mapeada a: {item.cuenta_base_nombre}</div>
-                      {item.row_errors && item.row_errors.length > 0 && (
-                        <div className="text-xs text-red-600 mt-1">
-                          {item.row_errors.map((err: string, i: number) => <p key={i}>- {err}</p>)}
+                  return (
+                    <TableRow key={index} className={rowClass}>
+                      <TableCell>
+                        <div className="font-medium">{item.codigo_cuenta} - {item.nombre_cuenta}</div>
+                        <div className="text-sm text-muted-foreground">Mapeada a: {item.cuenta_base_nombre}</div>
+                        {item.row_errors && item.row_errors.length > 0 && (
+                          <div className="text-xs text-red-600 mt-1">
+                            {item.row_errors.map((err: string, i: number) => <p key={i}>- {err}</p>)}
+                          </div>
+                        )}
+                        {item.row_warnings && item.row_warnings.length > 0 && (
+                          <div className="text-xs text-yellow-600 mt-1">
+                            {item.row_warnings.map((warn: string, i: number) => <p key={i}>- {warn}</p>)}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.saldo)}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {item.status === 'error' && <Badge variant="destructive">{statusIcon} {statusText}</Badge>}
+                          {item.status === 'warning' && <Badge variant="yellow">{statusIcon} {statusText}</Badge>}
+                          {item.status === 'valid' && <Badge variant="green">{statusText}</Badge>}
                         </div>
-                      )}
-                      {item.row_warnings && item.row_warnings.length > 0 && (
-                        <div className="text-xs text-yellow-600 mt-1">
-                          {item.row_warnings.map((warn: string, i: number) => <p key={i}>- {warn}</p>)}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.saldo)}</TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {item.status === 'error' && <Badge variant="destructive">{statusIcon} {statusText}</Badge>}
-                        {item.status === 'warning' && <Badge variant="yellow">{statusIcon} {statusText}</Badge>}
-                        {item.status === 'valid' && <Badge variant="green">{statusText}</Badge>}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-              {!Array.isArray(previewData.data) || previewData.data.length === 0 && (
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
                 <TableRow>
-                  <TableCell colSpan={3} className="text-center text-muted-foreground">No hay datos para previsualizar o el formato es incorrecto.</TableCell>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    No se encontraron resultados.
+                  </TableCell>
                 </TableRow>
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-end space-x-2 py-4">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
+            <span className="text-sm">Página {currentPage} de {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">

@@ -308,8 +308,8 @@ class ImportacionController extends Controller
         try {
             $this->estadoFinancieroService->guardar($empresaId, $anio, $tipoEstado, $detalles);
             
-            // Redirect to the dashboard with a success message
-            return redirect()->route('dashboard')->with('success', 'Estado financiero guardado con éxito.');
+            // Redirect to the wizard's first step with a success message
+            return redirect()->route('importacion.wizard')->with('success', 'Estado financiero guardado con éxito. Puede importar más datos.');
 
         } catch (\Exception $e) {
             Log::error('Error al guardar estado financiero: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
