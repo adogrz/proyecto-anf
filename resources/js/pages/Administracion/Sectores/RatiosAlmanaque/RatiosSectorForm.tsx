@@ -5,16 +5,16 @@ import { router } from "@inertiajs/react";
 import AppLayout from '@/layouts/app-layout';
 
 const ratiosFijos = [
-  { nombre_ratio: "Razon circulante", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Prueba acida", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Capital de trabajo", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Rotación de inventario", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Dias de inventario", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Rotacion de activos totales", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Grado de endeudamiento", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Endeudamiento patrimonial", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Rentabilidad neta del patrimonio (ROE)", valor_referencia: "", anio: "", fuente: "" },
-  { nombre_ratio: "Rentabilidad  del activo (ROA)", valor_referencia: "", anio: "", fuente: "" },
+  { nombre_ratio: "Razon circulante", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Prueba acida", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Capital de trabajo", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Rotación de inventario", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Dias de inventario", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Rotacion de activos totales", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Grado de endeudamiento", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Endeudamiento patrimonial", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Rentabilidad neta del patrimonio (ROE)", valor_referencia: "", fuente: "" },
+  { nombre_ratio: "Rentabilidad  del activo (ROA)", valor_referencia: "", fuente: "" },
 ]
 
 export default function RatiosForm({ sector, ratiosIniciales = [] }) {
@@ -27,7 +27,6 @@ export default function RatiosForm({ sector, ratiosIniciales = [] }) {
           ...ratioFijo,
           id: ratioExistente.id,
           valor_referencia: ratioExistente.valor_referencia,
-          anio: ratioExistente.anio,
           fuente: ratioExistente.fuente,
         };
       }
@@ -36,7 +35,6 @@ export default function RatiosForm({ sector, ratiosIniciales = [] }) {
         ...ratioFijo,
         id: null,
         valor_referencia: "0.00",
-        anio: "",
         fuente: "",
       };
     });
@@ -71,7 +69,6 @@ export default function RatiosForm({ sector, ratiosIniciales = [] }) {
               <tr>
                 <th className="p-2 text-left w-auto">Nombre del Ratio</th>
                 <th className="p-2 text-left">Valor Referencia</th>
-                <th className="p-2 text-left">Año</th>
                 <th className="p-2 text-left">Fuente</th>
               </tr>
             </thead>
@@ -89,13 +86,6 @@ export default function RatiosForm({ sector, ratiosIniciales = [] }) {
                       step="0.01"
                       placeholder="Ej. 45.3"
                       min="0.00"
-                    />
-                  </td>
-                  <td className="p-2">
-                    <Input
-                      value={ratio.anio}
-                      onChange={(e) => actualizarCampo(i, "anio", e.target.value)}
-                      placeholder="Ej. 2024"
                     />
                   </td>
                   <td className="p-2">

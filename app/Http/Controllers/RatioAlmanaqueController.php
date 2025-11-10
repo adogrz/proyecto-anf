@@ -41,7 +41,6 @@ class RatioAlmanaqueController extends Controller
             'ratios' => 'nullable|array',
             'ratios.*.nombre_ratio' => 'required|string|max:255',
             'ratios.*.valor_referencia' => 'nullable|numeric',
-            'ratios.*.anio' => 'nullable|string|max:4',
             'ratios.*.fuente' => 'nullable|string|max:255',
         ]);
 
@@ -57,7 +56,6 @@ class RatioAlmanaqueController extends Controller
                         'sector_id' => $sector->id, // Usamos el ID del sector inyectado
                         'nombre_ratio' => $ratio['nombre_ratio'],
                         'valor_referencia' => $ratio['valor_referencia'],
-                        'anio' => $ratio['anio'],
                         'fuente' => $ratio['fuente'],
                     ]
                 );
