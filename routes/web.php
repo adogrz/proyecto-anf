@@ -6,6 +6,7 @@ use App\Http\Controllers\CuentasBaseController;
 use App\Http\Controllers\DatoVentaHistoricoController;
 use App\Http\Controllers\EmpresasController;
 use App\Http\Controllers\EstadosFinancierosController;
+use App\Http\Controllers\RatioAlmanaqueController;
 use App\Http\Controllers\GraficoVariacionesController;
 use App\Http\Controllers\SectoresController;
 use App\Http\Controllers\Administracion\PlantillaCatalogoController;
@@ -27,6 +28,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Administración (Solo para rol 'Administrador')
     Route::middleware('can:sectores.index')->group(function () {
         Route::resource('sectores', SectoresController::class);
+        Route::get('/administracion/sectores/{sector}/ratios', [RatioAlmanaqueController::class, 'edit'])
+        ->name('sectores.ratios.edit');
+        Route::post('/administracion/sectores/{sector}/ratios/guardar', [RatioAlmanaqueController::class, 'guardar'])
+        ->name('sectores.ratios.guardar');
     });
 
     Route::middleware('can:cuentas-base.index')->group(function () {
@@ -108,5 +113,5 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-require __DIR__.'/settings.php';
-require __DIR__.'/auth.php';
+require __DIR__ . '/settings.php';
+require __DIR__ . '/auth.php';
