@@ -11,6 +11,7 @@ import { route } from 'ziggy-js';
 // Definiendo los props del componente
 interface IndexProps {
     plantillas: Plantilla[];
+    breadcrumbs?: BreadcrumbItem[];
 }
 
 const BREADCRUMBS: BreadcrumbItem[] = [

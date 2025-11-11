@@ -19,6 +19,7 @@ interface Plantilla {
 
 interface EditProps {
     plantilla: Plantilla;
+    breadcrumbs?: BreadcrumbItem[];
 }
 
 export default function PlantillasCatalogoEdit({ plantilla }: EditProps) {

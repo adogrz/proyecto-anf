@@ -17,7 +17,7 @@ const BREADCRUMBS: BreadcrumbItem[] = [
     { title: 'Crear', href: route('plantillas-catalogo.create') },
 ];
 
-export default function PlantillasCatalogoCreate() {
+export default function PlantillasCatalogoCreate({ breadcrumbs }: CreateProps) {
     const { data, setData, post, processing, errors } = useForm({
         nombre: '',
         descripcion: '',

@@ -1,12 +1,12 @@
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
-import { route } from 'ziggy-js';
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { TrendingUp, TrendingDown, Minus, ChevronDown } from 'lucide-react';
+import { useState, Fragment } from 'react';
 
 interface Cuenta {
     id: number | string;
@@ -16,14 +16,18 @@ interface Cuenta {
     valores: Record<number, number>;
     variaciones_absolutas: Record<number, number>;
     variaciones_porcentuales: Record<number, number>;
-    porcentajes_verticales?: Record<number, number>;
-    es_total?: boolean;
-    es_header?: boolean;
+    porcentajes_verticales: Record<number, number>;
+}
+
+interface Seccion {
+    header: Cuenta;
+    cuentas: Cuenta[];
+    total: Cuenta;
 }
 
 interface AnalisisTipo {
     anios: number[];
-    cuentas: Cuenta[];
+    cuentas: Seccion[];
 }
 
 interface EmpresaCompleta {
@@ -36,44 +40,39 @@ interface EmpresaCompleta {
 
 interface Props {
     empresa: EmpresaCompleta;
-    aniosDisponibles: number[];
-    anioInicio: number | null;
-    anioFin: number | null;
-    analisisData: AnalisisTipo | null;
-    tipoAnalisis: 'horizontal' | 'vertical';
+    analisisBalance: AnalisisTipo | null;
+    analisisResultados: AnalisisTipo | null;
 }
 
 export default function Analisis({ 
     empresa,
-    aniosDisponibles,
-    anioInicio: anioInicioServer,
-    anioFin: anioFinServer,
-    analisisData, 
-    tipoAnalisis: tipoAnalisisServer
+    analisisBalance,
+    analisisResultados
 }: Props) {
-    const [anioInicio, setAnioInicio] = useState(anioInicioServer?.toString() || '');
-    const [anioFin, setAnioFin] = useState(anioFinServer?.toString() || '');
-    const [tipoAnalisis, setTipoAnalisis] = useState<'horizontal' | 'vertical'>(tipoAnalisisServer);
 
-    // Sincronizar tipo de análisis del servidor con el estado local
-    useEffect(() => {
-        setTipoAnalisis(tipoAnalisisServer);
-    }, [tipoAnalisisServer]);
+    const [tipoVisualizacion, setTipoVisualizacion] = useState<'horizontal' | 'vertical'>('horizontal');
+    
+    // Obtener todos los años disponibles
+    const todosLosAnios = analisisBalance?.anios || analisisResultados?.anios || [];
+    
+    // Estado para controlar la visibilidad de cada año
+    const [columnasVisibles, setColumnasVisibles] = useState<Record<number, boolean>>(
+        todosLosAnios.reduce((acc, anio) => ({ ...acc, [anio]: true }), {})
+    );
 
-    // Sincronizar años del servidor con el estado local
-    useEffect(() => {
-        setAnioInicio(anioInicioServer?.toString() || '');
-        setAnioFin(anioFinServer?.toString() || '');
-    }, [anioInicioServer, anioFinServer]);
+    const toggleColumna = (anio: number) => {
+        setColumnasVisibles(prev => ({
+            ...prev,
+            [anio]: !prev[anio]
+        }));
+    };
 
-    // Función para determinar el nivel de la cuenta basado en su código
     const getNivelCuenta = (codigo: string): number => {
         if (!codigo) return 0;
         const segmentos = codigo.split('.');
         return segmentos.length;
     };
 
-    // Función para obtener el padding según el nivel
     const getPaddingPorNivel = (codigo: string): string => {
         if (!codigo) return '0.5rem';
         const nivel = getNivelCuenta(codigo);
@@ -83,7 +82,6 @@ export default function Analisis({
         return `${paddingBase + (nivel - 1) * paddingIncremento}rem`;
     };
 
-    // Funciones de formateo
     const formatearMoneda = (valor: number) => {
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
@@ -109,7 +107,6 @@ export default function Analisis({
         return 'text-gray-600';
     };
 
-    // Función para obtener el peso de fuente según el nivel
     const getFontWeightPorNivel = (codigo: string): string => {
         if (!codigo) return 'font-bold';
         const nivel = getNivelCuenta(codigo);
@@ -118,341 +115,365 @@ export default function Analisis({
         return 'font-normal';
     };
 
-    const handleConsultar = () => {
-        if (!anioInicio || !anioFin) return;
+    const renderFilaCuenta = (cuenta: Cuenta) => {
+        const padding = getPaddingPorNivel(cuenta.codigo);
+        const fontWeight = getFontWeightPorNivel(cuenta.codigo);
 
-        router.get(route('analisis.index', empresa.id), {
-            anio_inicio: anioInicio,
-            anio_fin: anioFin,
-            tipo_analisis: tipoAnalisis,
-        }, {
-            preserveState: true,
-            preserveScroll: true,
-        });
-    };
-
-    const handleTipoAnalisisChange = (value: 'horizontal' | 'vertical') => {
-        setTipoAnalisis(value);
-        setAnioInicio('');
-        setAnioFin('');
-        
-        router.get(route('analisis.index', empresa.id), {
-            tipo_analisis: value,
-        }, {
-            preserveState: false,
-            preserveScroll: false,
-        });
-    };
-
-    // Renderizar fila según su tipo
-    const renderFila = (cuenta: Cuenta) => {
-        // FILA DE ENCABEZADO (ACTIVOS, PASIVOS, INGRESOS, etc.)
-        if (cuenta.es_header) {
-            return (
-                <TableRow key={cuenta.id} className="bg-slate-700 hover:bg-slate-700">
-                    <TableCell className="sticky left-0 bg-slate-700"></TableCell>
-                    <TableCell 
-                        colSpan={analisisData!.anios.length * (tipoAnalisis === 'horizontal' ? 3 : 2) + 1}
-                        className="sticky left-[100px] bg-slate-700 font-bold text-white text-lg py-3"
-                    >
-                        {cuenta.nombre}
-                    </TableCell>
-                </TableRow>
-            );
-        }
-
-        // FILA DE TOTAL
-        if (cuenta.es_total) {
-
-            return (
-                <TableRow key={cuenta.id} className="border-t-2 border-b border-border">
-                    <TableCell className="font-mono text-sm sticky left-0 font-bold"></TableCell>
-                    <TableCell className="sticky left-[100px] font-bold">
-                        {cuenta.nombre}
-                    </TableCell>
-                    
-                    {tipoAnalisis === 'horizontal' ? (
-                        <>
-                            {/* Valores */}
-                            {analisisData!.anios.map((anio) => (
-                                <TableCell key={anio} className="text-right font-bold">
-                                    {formatearMoneda(cuenta.valores[anio] || 0)}
-                                </TableCell>
-                            ))}
-                            {/* Variaciones absolutas */}
-                            {analisisData!.anios.slice(1).map((anio) => (
-                                <TableCell 
-                                    key={`var-${anio}`} 
-                                    className={`text-right font-bold ${getVariacionColor(cuenta.variaciones_absolutas[anio] || 0)}`}
-                                >
-                                    <div className="flex items-center justify-end gap-1">
-                                        {getVariacionIcon(cuenta.variaciones_absolutas[anio] || 0)}
-                                        <span>{formatearMoneda(cuenta.variaciones_absolutas[anio] || 0)}</span>
-                                    </div>
-                                </TableCell>
-                            ))}
-                            {/* Variaciones porcentuales */}
-                            {analisisData!.anios.slice(1).map((anio) => (
-                                <TableCell 
-                                    key={`per-${anio}`} 
-                                    className={`text-right font-bold ${getVariacionColor(cuenta.variaciones_porcentuales[anio] || 0)}`}
-                                >
-                                    {formatearPorcentaje(cuenta.variaciones_porcentuales[anio] || 0)}
-                                </TableCell>
-                            ))}
-                        </>
-                    ) : (
-                        <>
-                            {/* Valores */}
-                            {analisisData!.anios.map((anio) => (
-                                <TableCell key={`val-${anio}`} className="text-right font-bold">
-                                    {formatearMoneda(cuenta.valores[anio] || 0)}
-                                </TableCell>
-                            ))}
-                            {/* Porcentajes verticales */}
-                            {analisisData!.anios.map((anio) => (
-                                <TableCell key={`pct-${anio}`} className="text-right font-bold">
-                                    {formatearPorcentaje(cuenta.porcentajes_verticales?.[anio] || 0)}
-                                </TableCell>
-                            ))}
-                        </>
-                    )}
-                </TableRow>
-            );
-        }
-
-        // FILA NORMAL DE CUENTA
-        const esAgrupacion = cuenta.tipo === 'AGRUPACION';
-        
         return (
-            <TableRow 
-                key={cuenta.id} 
-                className={esAgrupacion ? 'bg-muted/50' : ''}
+            <TableCell 
+                className={`sticky left-0 bg-card border-r ${fontWeight}`}
+                style={{ paddingLeft: padding }}
             >
-                <TableCell className="font-mono text-sm sticky left-0">
-                    {cuenta.codigo}
-                </TableCell>
-                <TableCell 
-                    className={`sticky left-[100px] ${getFontWeightPorNivel(cuenta.codigo)}`}
-                    style={{ paddingLeft: getPaddingPorNivel(cuenta.codigo) }}
-                >
-                    {cuenta.nombre}
-                </TableCell>
-                
-                {tipoAnalisis === 'horizontal' ? (
-                    <>
-                        {/* Valores por año */}
-                        {analisisData!.anios.map((anio) => (
-                            <TableCell key={anio} className="text-right">
-                                {formatearMoneda(cuenta.valores[anio] || 0)}
-                            </TableCell>
-                        ))}
-                        
-                        {/* Variaciones absolutas */}
-                        {analisisData!.anios.slice(1).map((anio) => (
-                            <TableCell 
-                                key={`var-${anio}`} 
-                                className={`text-right ${getVariacionColor(cuenta.variaciones_absolutas[anio] || 0)}`}
-                            >
-                                <div className="flex items-center justify-end gap-1">
-                                    {getVariacionIcon(cuenta.variaciones_absolutas[anio] || 0)}
-                                    <span>{formatearMoneda(cuenta.variaciones_absolutas[anio] || 0)}</span>
-                                </div>
-                            </TableCell>
-                        ))}
-                        
-                        {/* Variaciones porcentuales */}
-                        {analisisData!.anios.slice(1).map((anio) => (
-                            <TableCell 
-                                key={`per-${anio}`} 
-                                className={`text-right font-semibold ${getVariacionColor(cuenta.variaciones_porcentuales[anio] || 0)}`}
-                            >
-                                {formatearPorcentaje(cuenta.variaciones_porcentuales[anio] || 0)}
-                            </TableCell>
-                        ))}
-                    </>
-                ) : (
-                    <>
-                        {/* Valores por año */}
-                        {analisisData!.anios.map((anio) => (
-                            <TableCell key={`val-${anio}`} className="text-right">
-                                {formatearMoneda(cuenta.valores[anio] || 0)}
-                            </TableCell>
-                        ))}
-                        
-                        {/* Porcentajes verticales */}
-                        {analisisData!.anios.map((anio) => (
-                            <TableCell key={`pct-${anio}`} className="text-right font-semibold text-blue-600">
-                                {formatearPorcentaje(cuenta.porcentajes_verticales?.[anio] || 0)}
-                            </TableCell>
-                        ))}
-                    </>
-                )}
-            </TableRow>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500 min-w-[80px]">{cuenta.codigo}</span>
+                    <span>{cuenta.nombre}</span>
+                </div>
+            </TableCell>
+        );
+    };
+
+    const renderTablaAnalisis = (analisis: AnalisisTipo | null, titulo: string, descripcion: string) => {
+        if (!analisis || analisis.cuentas.length === 0) {
+            return (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>{titulo}</CardTitle>
+                        <CardDescription>{descripcion}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <p className="text-center text-gray-500 py-8">
+                            No hay datos disponibles para este estado financiero.
+                        </p>
+                    </CardContent>
+                </Card>
+            );
+        }
+
+        const { anios, cuentas } = analisis;
+        
+        // Filtrar solo los años visibles
+        const aniosVisibles = anios.filter(anio => columnasVisibles[anio]);
+
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>{titulo}</CardTitle>
+                    <CardDescription>{descripcion}</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {/* Selector de columnas (solo para horizontal) */}
+                    {tipoVisualizacion === 'horizontal' && (
+                        <div className="flex justify-end">
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                        Columnas <ChevronDown className="ml-2 h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-[200px]">
+                                    {anios.map((anio) => (
+                                        <DropdownMenuCheckboxItem
+                                            key={anio}
+                                            checked={columnasVisibles[anio]}
+                                            onCheckedChange={() => toggleColumna(anio)}
+                                        >
+                                            {anio}
+                                        </DropdownMenuCheckboxItem>
+                                    ))}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    )}
+                    
+                    <div className="rounded-md border overflow-auto max-h-[70vh]">
+                        <Table>
+                            <TableHeader className="sticky top-0 bg-muted z-10">
+                                <TableRow>
+                                    <TableHead className="sticky left-0 bg-muted border-r font-bold min-w-[250px]">
+                                        Cuenta
+                                    </TableHead>
+                                    {aniosVisibles.map((anio, index) => {
+                                        const siguienteAnioVisible = aniosVisibles[index + 1];
+                                        
+                                        // Solo mostrar si hay un siguiente año para comparar
+                                        if (!siguienteAnioVisible) return null;
+                                        
+                                        return (
+                                            <Fragment key={`grupo-${anio}-${siguienteAnioVisible}`}>
+                                                {/* Primer año del par */}
+                                                <TableHead 
+                                                    className="text-center bg-muted border-x font-bold"
+                                                    colSpan={tipoVisualizacion === 'vertical' ? 2 : 1}
+                                                >
+                                                    {anio}
+                                                </TableHead>
+                                                {/* Segundo año del par */}
+                                                {tipoVisualizacion === 'horizontal' && (
+                                                    <>
+                                                        <TableHead 
+                                                            className="text-center bg-muted border-x font-bold"
+                                                        >
+                                                            {siguienteAnioVisible}
+                                                        </TableHead>
+                                                        <TableHead 
+                                                            className="text-center bg-muted border-x font-bold" 
+                                                            colSpan={2}
+                                                        >
+                                                            {anio} vs {siguienteAnioVisible}
+                                                        </TableHead>
+                                                    </>
+                                                )}
+                                                {tipoVisualizacion === 'vertical' && (
+                                                    <TableHead 
+                                                        className="text-center bg-muted border-x font-bold"
+                                                        colSpan={2}
+                                                    >
+                                                        {siguienteAnioVisible}
+                                                    </TableHead>
+                                                )}
+                                            </Fragment>
+                                        );
+                                    })}
+                                </TableRow>
+                                <TableRow className="bg-muted/50">
+                                    <TableHead className="sticky left-0 bg-muted/50 border-r"></TableHead>
+                                    {aniosVisibles.map((anio, index) => {
+                                        const siguienteAnioVisible = aniosVisibles[index + 1];
+                                        
+                                        // Solo mostrar si hay un siguiente año para comparar
+                                        if (!siguienteAnioVisible) return null;
+                                        
+                                        return (
+                                            <Fragment key={`sub-grupo-${anio}-${siguienteAnioVisible}`}>
+                                                {/* Valor primer año */}
+                                                <TableHead className="text-center text-xs bg-muted/50">
+                                                    Valor
+                                                </TableHead>
+                                                {tipoVisualizacion === 'vertical' && (
+                                                    <TableHead className="text-center text-xs bg-muted/50">
+                                                        %
+                                                    </TableHead>
+                                                )}
+                                                {/* Valor segundo año */}
+                                                <TableHead className="text-center text-xs bg-muted/50">
+                                                    Valor
+                                                </TableHead>
+                                                {tipoVisualizacion === 'vertical' && (
+                                                    <TableHead className="text-center text-xs bg-muted/50">
+                                                        %
+                                                    </TableHead>
+                                                )}
+                                                {/* Variaciones (solo en horizontal) */}
+                                                {tipoVisualizacion === 'horizontal' && (
+                                                    <>
+                                                        <TableHead className="text-center text-xs bg-muted/50">
+                                                            Var. Abs.
+                                                        </TableHead>
+                                                        <TableHead className="text-center text-xs bg-muted/50">
+                                                            Var. Rel.
+                                                        </TableHead>
+                                                    </>
+                                                )}
+                                            </Fragment>
+                                        );
+                                    })}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {cuentas.map((seccion, secIndex) => {
+                                    // Calcular colspan dinámico basado en años visibles
+                                    const calcularColspan = () => {
+                                        if (tipoVisualizacion === 'vertical') {
+                                            return (aniosVisibles.length * 2) + 1; // Cuenta + años (valor + %)
+                                        } else {
+                                            // Horizontal: cada par consecutivo = 2 valores + 2 variaciones = 4 columnas
+                                            const numPares = aniosVisibles.length - 1; // n-1 comparaciones
+                                            return 1 + (numPares * 4); // 1 cuenta + (pares * 4)
+                                        }
+                                    };
+                                    
+                                    return (
+                                        <>
+                                            <TableRow key={`header-${secIndex}`} className="bg-slate-700 hover:bg-slate-700">
+                                                <TableCell 
+                                                    colSpan={calcularColspan()}
+                                                    className="sticky left-0 bg-slate-700 font-bold text-white text-lg py-3"
+                                                >
+                                                    {seccion.header.nombre}
+                                                </TableCell>
+                                            </TableRow>
+
+                                            {seccion.cuentas.map((cuenta) => (
+                                                <TableRow key={cuenta.id}>
+                                                    {renderFilaCuenta(cuenta)}
+                                                    {aniosVisibles.map((anio, index) => {
+                                                        const siguienteAnioVisible = aniosVisibles[index + 1];
+                                                        
+                                                        // Solo mostrar si hay un siguiente año para comparar
+                                                        if (!siguienteAnioVisible) return null;
+                                                        
+                                                        return (
+                                                            <Fragment key={`data-${anio}-${siguienteAnioVisible}`}>
+                                                                {/* Valor del primer año */}
+                                                                <TableCell className="text-right">
+                                                                    {formatearMoneda(cuenta.valores[anio] || 0)}
+                                                                </TableCell>
+                                                                {tipoVisualizacion === 'vertical' && (
+                                                                    <TableCell className="text-right text-blue-600">
+                                                                        {formatearPorcentaje(cuenta.porcentajes_verticales[anio] || 0)}
+                                                                    </TableCell>
+                                                                )}
+                                                                {/* Valor del segundo año */}
+                                                                <TableCell className="text-right">
+                                                                    {formatearMoneda(cuenta.valores[siguienteAnioVisible] || 0)}
+                                                                </TableCell>
+                                                                {tipoVisualizacion === 'vertical' && (
+                                                                    <TableCell className="text-right text-blue-600">
+                                                                        {formatearPorcentaje(cuenta.porcentajes_verticales[siguienteAnioVisible] || 0)}
+                                                                    </TableCell>
+                                                                )}
+                                                                {/* Variaciones (solo en horizontal) */}
+                                                                {tipoVisualizacion === 'horizontal' && (
+                                                                    <>
+                                                                        <TableCell 
+                                                                            className={`text-right ${getVariacionColor(cuenta.variaciones_absolutas[siguienteAnioVisible] || 0)}`}
+                                                                        >
+                                                                            <div className="flex items-center justify-end gap-1">
+                                                                                {getVariacionIcon(cuenta.variaciones_absolutas[siguienteAnioVisible] || 0)}
+                                                                                <span>{formatearMoneda(Math.abs(cuenta.variaciones_absolutas[siguienteAnioVisible] || 0))}</span>
+                                                                            </div>
+                                                                        </TableCell>
+                                                                        <TableCell 
+                                                                            className={`text-right ${getVariacionColor(cuenta.variaciones_porcentuales[siguienteAnioVisible] || 0)}`}
+                                                                        >
+                                                                            {formatearPorcentaje(cuenta.variaciones_porcentuales[siguienteAnioVisible] || 0)}
+                                                                        </TableCell>
+                                                                    </>
+                                                                )}
+                                                            </Fragment>
+                                                        );
+                                                    })}
+                                                </TableRow>
+                                            ))}
+
+                                            <TableRow className="bg-muted/30 hover:bg-muted/40 font-semibold">
+                                                <TableCell className="sticky left-0 bg-muted/30 border-r">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs text-gray-500 min-w-[80px]">{seccion.total.codigo}</span>
+                                                        <span>{seccion.total.nombre}</span>
+                                                    </div>
+                                                </TableCell>
+                                                {aniosVisibles.map((anio, index) => {
+                                                    const siguienteAnioVisible = aniosVisibles[index + 1];
+                                                    
+                                                    // Solo mostrar si hay un siguiente año para comparar
+                                                    if (!siguienteAnioVisible) return null;
+                                                    
+                                                    return (
+                                                        <Fragment key={`total-${anio}-${siguienteAnioVisible}`}>
+                                                            {/* Valor del primer año */}
+                                                            <TableCell className="text-right bg-muted/30">
+                                                                {formatearMoneda(seccion.total.valores[anio] || 0)}
+                                                            </TableCell>
+                                                            {tipoVisualizacion === 'vertical' && (
+                                                                <TableCell className="text-right bg-muted/30 text-blue-600">
+                                                                    {formatearPorcentaje(seccion.total.porcentajes_verticales[anio] || 0)}
+                                                                </TableCell>
+                                                            )}
+                                                            {/* Valor del segundo año */}
+                                                            <TableCell className="text-right bg-muted/30">
+                                                                {formatearMoneda(seccion.total.valores[siguienteAnioVisible] || 0)}
+                                                            </TableCell>
+                                                            {tipoVisualizacion === 'vertical' && (
+                                                                <TableCell className="text-right bg-muted/30 text-blue-600">
+                                                                    {formatearPorcentaje(seccion.total.porcentajes_verticales[siguienteAnioVisible] || 0)}
+                                                                </TableCell>
+                                                            )}
+                                                            {/* Variaciones (solo en horizontal) */}
+                                                            {tipoVisualizacion === 'horizontal' && (
+                                                                <>
+                                                                    <TableCell 
+                                                                        className={`text-right bg-muted/30 ${getVariacionColor(seccion.total.variaciones_absolutas[siguienteAnioVisible] || 0)}`}
+                                                                    >
+                                                                        <div className="flex items-center justify-end gap-1">
+                                                                            {getVariacionIcon(seccion.total.variaciones_absolutas[siguienteAnioVisible] || 0)}
+                                                                            <span>{formatearMoneda(Math.abs(seccion.total.variaciones_absolutas[siguienteAnioVisible] || 0))}</span>
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell 
+                                                                        className={`text-right bg-muted/30 ${getVariacionColor(seccion.total.variaciones_porcentuales[siguienteAnioVisible] || 0)}`}
+                                                                    >
+                                                                        {formatearPorcentaje(seccion.total.variaciones_porcentuales[siguienteAnioVisible] || 0)}
+                                                                    </TableCell>
+                                                                </>
+                                                            )}
+                                                        </Fragment>
+                                                    );
+                                                })}
+                                            </TableRow>
+                                        </>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+            </Card>
         );
     };
 
     return (
         <AppLayout>
-            <Head title={`Análisis ${tipoAnalisis === 'horizontal' ? 'Horizontal' : 'Vertical'}`} />
-            
-            <div className="container mx-auto px-6 py-8 space-y-6">
-                <div>
-                    <h1 className="text-3xl font-bold">
-                        Análisis {tipoAnalisis === 'horizontal' ? 'Horizontal' : 'Vertical'}
-                    </h1>
-                    <p className="text-muted-foreground">
-                        {tipoAnalisis === 'horizontal' 
-                            ? 'Comparación temporal del Balance General'
-                            : 'Análisis de estructura del Estado de Resultados'
-                        }
-                    </p>
-                </div>
+            <Head title="Análisis Financiero" />
 
-                {/* Filtros */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Filtros</CardTitle>
-                        <CardDescription>Seleccione el tipo de análisis, empresa y período</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Tipo de Análisis</label>
-                                <Select value={tipoAnalisis} onValueChange={handleTipoAnalisisChange}>
-                                    <SelectTrigger>
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="horizontal">Horizontal (Balance)</SelectItem>
-                                        <SelectItem value="vertical">Vertical (Resultados)</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Año Inicio</label>
-                                <Select 
-                                    value={anioInicio} 
-                                    onValueChange={setAnioInicio}
-                                    disabled={aniosDisponibles.length === 0}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={aniosDisponibles.length === 0 ? "No hay años disponibles" : "Seleccionar año"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {aniosDisponibles.map((anio) => (
-                                            <SelectItem key={anio} value={anio.toString()}>
-                                                {anio}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Año Fin</label>
-                                <Select 
-                                    value={anioFin} 
-                                    onValueChange={setAnioFin}
-                                    disabled={!anioInicio || aniosDisponibles.length === 0}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder={aniosDisponibles.length === 0 ? "No hay años disponibles" : "Seleccionar año"} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {aniosDisponibles
-                                            .filter(a => !anioInicio || a >= parseInt(anioInicio))
-                                            .map((anio) => (
-                                                <SelectItem key={anio} value={anio.toString()}>
-                                                    {anio}
-                                                </SelectItem>
-                                            ))
-                                        }
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="flex items-end">
-                                <Button 
-                                    onClick={handleConsultar}
-                                    disabled={!anioInicio || !anioFin}
-                                    className="w-full"
-                                >
-                                    Consultar
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>{empresa.nombre}</CardTitle>
-                        <CardDescription>
-                            Sector: {empresa.sector.nombre} | 
-                            Período: {anioInicioServer} - {anioFinServer} |
-                            Tipo: {tipoAnalisis === 'horizontal' ? 'Balance General' : 'Estado de Resultados'}
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        {!analisisData ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                                {anioInicioServer && anioFinServer 
-                                    ? `No hay suficientes datos de ${tipoAnalisis === 'horizontal' ? 'Balance General' : 'Estado de Resultados'} para realizar el análisis en el período seleccionado.`
-                                    : "Seleccione un período para ver el análisis."
-                                }
-                            </div>
-                        ) : (
-                                <div className="overflow-x-auto">
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead className="w-[100px] sticky left-0">Código</TableHead>
-                                                <TableHead className="min-w-[250px] sticky left-[100px]">Cuenta</TableHead>
-                                                
-                                                {tipoAnalisis === 'horizontal' ? (
-                                                    <>
-                                                        {analisisData.anios.map((anio) => (
-                                                            <TableHead key={anio} className="text-right min-w-[120px]">
-                                                                {anio}
-                                                            </TableHead>
-                                                        ))}
-                                                        {analisisData.anios.slice(1).map((anio) => (
-                                                            <TableHead key={`var-${anio}`} className="text-right min-w-[120px]">
-                                                                Var. Absoluta
-                                                            </TableHead>
-                                                        ))}
-                                                        {analisisData.anios.slice(1).map((anio) => (
-                                                            <TableHead key={`per-${anio}`} className="text-right min-w-[100px]">
-                                                                Var. Relativa
-                                                            </TableHead>
-                                                        ))}
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        {analisisData.anios.map((anio) => (
-                                                            <TableHead key={`val-${anio}`} className="text-right min-w-[120px]">
-                                                                {anio}
-                                                            </TableHead>
-                                                        ))}
-                                                        {analisisData.anios.map((anio) => (
-                                                            <TableHead key={`pct-${anio}`} className="text-right min-w-[100px]">
-                                                                % {anio}
-                                                            </TableHead>
-                                                        ))}
-                                                    </>
-                                                )}
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {analisisData.cuentas.map((cuenta) => renderFila(cuenta))}
-                                        </TableBody>
-                                    </Table>
+            <div className="py-8">
+                <div className="mx-auto max-w-[95%] space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Información de la Empresa</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-3 gap-4">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500">Empresa</p>
+                                    <p className="text-lg font-semibold">{empresa.nombre}</p>
                                 </div>
-                            )}
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500">Sector</p>
+                                    <p className="text-lg font-semibold">{empresa.sector.nombre}</p>
+                                </div>
+                                <div>
+                                    <p className="text-sm font-medium text-gray-500 mb-2">Tipo de Visualización</p>
+                                    <Select value={tipoVisualizacion} onValueChange={(value: 'horizontal' | 'vertical') => setTipoVisualizacion(value)}>
+                                        <SelectTrigger>
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="horizontal">Análisis Horizontal</SelectItem>
+                                            <SelectItem value="vertical">Análisis Vertical</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
                         </CardContent>
                     </Card>
+
+                    {renderTablaAnalisis(
+                        analisisBalance,
+                        'Balance General',
+                        tipoVisualizacion === 'horizontal'
+                            ? 'Análisis Horizontal: Muestra valores por año y variaciones absolutas/relativas entre cada período consecutivo'
+                            : 'Análisis Vertical: Muestra valores por año y porcentajes respecto al total de activos'
+                    )}
+
+                    {renderTablaAnalisis(
+                        analisisResultados,
+                        'Estado de Resultados',
+                        tipoVisualizacion === 'horizontal'
+                            ? 'Análisis Horizontal: Muestra valores por año y variaciones absolutas/relativas entre cada período consecutivo'
+                            : 'Análisis Vertical: Muestra valores por año y porcentajes respecto al total de ingresos'
+                    )}
+                </div>
             </div>
         </AppLayout>
     );
