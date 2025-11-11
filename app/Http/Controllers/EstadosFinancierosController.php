@@ -10,13 +10,17 @@ use App\Models\DetalleEstado;
 use App\Models\CatalogoCuenta;
 use App\Models\CuentaBase;
 use Illuminate\Http\Request;
+use App\Services\CalculoRatiosService;
 
 use App\Models\EstadoFinanciero;
 use App\Models\Empresa;
 use Inertia\Inertia;
 
 class EstadosFinancierosController extends Controller
-{
+{   
+    public function __construct(private CalculoRatiosService $ratioService)
+    {
+    }
     /**
      * Display a listing of the resource.
      */
@@ -103,8 +107,10 @@ class EstadosFinancierosController extends Controller
                     'valor' => $detalleData['valor'],
                 ]);
             }
-        });
 
+        });
+        
+        $this->ratioService->calcularYGuardarParaTodasLasEmpresas();
         return redirect()->route('empresas.estados-financieros.index', $empresa)
                          ->with('success', 'Estado Financiero creado exitosamente.');
     }
@@ -246,6 +252,7 @@ class EstadosFinancierosController extends Controller
                 DetalleEstado::whereIn('id', $detallesToDelete)->delete();
             }
         });
+        $this->ratioService->calcularYGuardarParaTodasLasEmpresas();
 
         return redirect()->route('empresas.estados-financieros.index', $empresa)
                          ->with('success', 'Estado Financiero actualizado exitosamente.');
