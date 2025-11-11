@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import InputError from '@/components/input-error';
 import { type BreadcrumbItem } from '@/types';
+import { route } from 'ziggy-js';
 
 interface Plantilla {
     id: number;
@@ -21,7 +22,14 @@ interface EditProps {
     breadcrumbs?: BreadcrumbItem[];
 }
 
-export default function PlantillasCatalogoEdit({ plantilla, breadcrumbs }: EditProps) {
+export default function PlantillasCatalogoEdit({ plantilla }: EditProps) {
+    const BREADCRUMBS: BreadcrumbItem[] = [
+        { title: 'Home', href: route('dashboard') },
+        { title: 'Plantillas de Catálogo', href: route('plantillas-catalogo.index') },
+        { title: plantilla.nombre, href: route('plantillas-catalogo.edit', plantilla.id) },
+        { title: 'Editar', href: route('plantillas-catalogo.edit', plantilla.id) },
+    ];
+
     const { data, setData, put, processing, errors } = useForm({
         nombre: plantilla.nombre || '',
         descripcion: plantilla.descripcion || '',
@@ -33,7 +41,7 @@ export default function PlantillasCatalogoEdit({ plantilla, breadcrumbs }: EditP
     };
 
     return (
-        <AppLayout breadcrumbs={breadcrumbs}>
+        <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={`Editar Plantilla: ${plantilla.nombre}`} />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <Card className="max-w-2xl mx-auto">

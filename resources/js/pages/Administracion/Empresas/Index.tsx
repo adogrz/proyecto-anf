@@ -13,7 +13,8 @@ interface IndexProps {
 }
 
 const BREADCRUMBS: BreadcrumbItem[] = [
-    { title: 'Empresas', href: '/empresas' },
+    { title: 'Home', href: route('dashboard') },
+    { title: 'Empresas', href: route('empresas.index') },
 ];
 
 export default function EmpresasIndex({ empresas }: IndexProps) {

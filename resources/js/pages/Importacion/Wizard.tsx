@@ -55,13 +55,23 @@ const DefineEmpresaStep: React.FC<DefineEmpresaStepProps> = ({ empresas, sectore
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('handleCreateSubmit called'); // Debug log
     post(route('empresas.store'), {
       onSuccess: (page) => {
-        const newEmpresa = (page.props as any).jetstream.flash.empresa as Empresa;
+        console.log('onSuccess callback executed'); // Debug log
+        console.log('page.props:', page.props); // Debug log
+        console.log('page.props.flash:', (page.props as any).flash); // Debug log
+        const newEmpresa = (page.props as any).flash.empresa as Empresa;
         if (newEmpresa) {
+          console.log('newEmpresa found:', newEmpresa); // Debug log
           onEmpresaSelected(newEmpresa, 'goToStep2'); // New companies always go to step 2
+        } else {
+          console.log('newEmpresa not found in flash messages.'); // Debug log
         }
       },
+      onError: (errors) => { // Add onError callback for debugging
+        console.error('onError callback executed. Errors:', errors);
+      }
     });
   };
 
@@ -351,7 +361,7 @@ const CargarCatalogoBaseStep: React.FC<CargarCatalogoBaseStepProps> = ({ empresa
         <CardDescription>Arrastre y suelte su catálogo base en formato Excel (.xlsx, .xls, .csv) en el área designada o haga clic para seleccionarlo. Este catálogo definirá la estructura estándar de cuentas para la empresa.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
             <Label 
                 htmlFor="catalogo-base-file-input" 
                 className={`flex-1 flex items-center justify-center w-full p-6 border-2 border-dashed rounded-md cursor-pointer transition-colors 
@@ -377,7 +387,7 @@ const CargarCatalogoBaseStep: React.FC<CargarCatalogoBaseStepProps> = ({ empresa
           <Button onClick={handlePreview} disabled={!archivo || isProcessing} size="lg">
             {isProcessing ? 'Previsualizando...' : 'Previsualizar Catálogo'}
           </Button>
-          <Button variant="outline" size="lg" asChild>
+          <Button variant="download" size="lg" asChild>
             <a href={route('importacion.descargarPlantilla', { tipo: 'catalogo' })}>
               <FileDown className="mr-2 h-4 w-4" /> Descargar Plantilla
             </a>
@@ -874,13 +884,13 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
             <Input id="estado-file-input" type="file" className="hidden" onChange={e => handleFileChange(e.target.files ? e.target.files[0] : null)} accept=".xlsx,.xls,.csv" />
         </div>
 
-        <div className="flex justify-end gap-2">
-            <Button variant="outline" asChild>
+        <div className="flex justify-end gap-2 flex-wrap">
+            <Button variant="download" asChild>
                 <a href={route('importacion.descargarPlantilla', { tipo: 'balance' })}>
                     <FileDown className="mr-2 h-4 w-4" /> Plantilla Balance General
                 </a>
             </Button>
-            <Button variant="outline" asChild>
+            <Button variant="download" asChild>
                 <a href={route('importacion.descargarPlantilla', { tipo: 'resultados' })}>
                     <FileDown className="mr-2 h-4 w-4" /> Plantilla Estado de Resultados
                 </a>
@@ -1135,6 +1145,33 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
   const [empresa, setEmpresa] = React.useState<Empresa | null>(null);
   const [previewData, setPreviewData] = React.useState<any>(null);
 
+  // Dynamic Breadcrumbs
+  const getBreadcrumbs = (): BreadcrumbItem[] => {
+    const baseBreadcrumbs: BreadcrumbItem[] = [
+      { title: 'Home', href: route('dashboard') },
+      { title: 'Importación', href: route('importacion.wizard') }, // Assuming a route for the wizard itself
+    ];
+
+    if (step === 1) {
+      return [...baseBreadcrumbs, { title: 'Definir Empresa', href: route('importacion.wizard') }];
+    }
+
+    if (empresa) {
+      baseBreadcrumbs.push({ title: empresa.nombre, href: route('empresas.show', empresa.id) }); // Link to company show page
+    }
+
+    switch (step) {
+      case 2:
+        return [...baseBreadcrumbs, { title: 'Catálogo Base', href: route('importacion.wizard') }];
+      case 3:
+        return [...baseBreadcrumbs, { title: 'Estado Financiero', href: route('importacion.wizard') }];
+      case 4:
+        return [...baseBreadcrumbs, { title: 'Previsualizar', href: route('importacion.wizard') }];
+      default:
+        return baseBreadcrumbs;
+    }
+  };
+
   const handleEmpresaSelected = (selectedEmpresa: Empresa, action: 'goToStep2' | 'goToStep3') => {
     setEmpresa(selectedEmpresa);
     // Determine if the company has a catalog already
@@ -1233,7 +1270,7 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
   ];
 
   return (
-    <AppLayout>
+    <AppLayout breadcrumbs={getBreadcrumbs()}>
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">

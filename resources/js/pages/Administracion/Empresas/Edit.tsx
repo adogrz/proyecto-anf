@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import InputError from '@/components/input-error';
+import { BreadcrumbItem } from '@/types';
+import { route } from 'ziggy-js';
 
 // Interfaces
 interface Sector {
@@ -34,6 +36,13 @@ interface EditProps {
 }
 
 export default function EmpresasEdit({ empresa, sectores, plantillas }: EditProps) {
+    const BREADCRUMBS: BreadcrumbItem[] = [
+        { title: 'Home', href: route('dashboard') },
+        { title: 'Empresas', href: route('empresas.index') },
+        { title: empresa.nombre, href: route('empresas.show', empresa.id) },
+        { title: 'Editar', href: route('empresas.edit', empresa.id) },
+    ];
+
     const { data, setData, put, processing, errors } = useForm({
         nombre: empresa.nombre || '',
         sector_id: String(empresa.sector_id) || '',
@@ -46,7 +55,7 @@ export default function EmpresasEdit({ empresa, sectores, plantillas }: EditProp
     };
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={`Editar Empresa: ${empresa.nombre}`} />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <Card className="max-w-2xl mx-auto">

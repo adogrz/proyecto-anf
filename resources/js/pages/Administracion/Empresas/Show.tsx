@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
 import { Head, Link } from '@inertiajs/react';
 import { route } from 'ziggy-js';
+import { BreadcrumbItem } from '@/types';
 
 // Interfaces
 interface Sector {
@@ -35,17 +36,29 @@ interface Empresa {
     nombre: string;
     sector: Sector;
     plantilla_catalogo: PlantillaCatalogo | null;
-    catalogoCuentas?: CatalogoCuenta[];
-    estadosFinancieros?: EstadoFinanciero[];
+}
+
+interface Stats {
+    catalogo_cuentas_count: number;
+    estados_financieros_count: number;
+    datos_venta_historicos_count: number;
+    ratios_calculados_count: number;
 }
 
 interface ShowProps {
     empresa: Empresa;
+    stats: Stats;
 }
 
-export default function EmpresasShow({ empresa }: ShowProps) {
+export default function EmpresasShow({ empresa, stats }: ShowProps) {
+    const BREADCRUMBS: BreadcrumbItem[] = [
+        { title: 'Home', href: route('dashboard') },
+        { title: 'Empresas', href: route('empresas.index') },
+        { title: empresa.nombre, href: route('empresas.show', empresa.id) },
+    ];
+
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={`Empresa: ${empresa.nombre}`} />
             <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
                 <div className="mb-6 flex items-center justify-between">
@@ -127,20 +140,36 @@ export default function EmpresasShow({ empresa }: ShowProps) {
                             <CardTitle>Estadísticas</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex justify-between">
-                                <span className="text-sm font-medium text-gray-600">
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
                                     Cuentas en catálogo:
                                 </span>
-                                <Badge variant="secondary">
-                                    {empresa.catalogoCuentas?.length || 0}
+                                <Badge variant="blue" className="text-base font-bold px-3 py-1">
+                                    {stats.catalogo_cuentas_count}
                                 </Badge>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm font-medium text-gray-600">
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
                                     Estados financieros:
                                 </span>
-                                <Badge variant="secondary">
-                                    {empresa.estadosFinancieros?.length || 0}
+                                <Badge variant="green" className="text-base font-bold px-3 py-1">
+                                    {stats.estados_financieros_count}
+                                </Badge>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
+                                    Datos de venta históricos:
+                                </span>
+                                <Badge variant="yellow" className="text-base font-bold px-3 py-1">
+                                    {stats.datos_venta_historicos_count}
+                                </Badge>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
+                                    Ratios calculados:
+                                </span>
+                                <Badge variant="red" className="text-base font-bold px-3 py-1">
+                                    {stats.ratios_calculados_count}
                                 </Badge>
                             </div>
                         </CardContent>
