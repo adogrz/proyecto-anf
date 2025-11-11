@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('ratios', function (Blueprint $table) {
+        Schema::create('ratios_sector', function (Blueprint $table) {
             $table->id();
             $table->foreignId('sector_id')->constrained('sectores')->onDelete('cascade');
             $table->string('nombre_ratio');
-            $table->string('tipo_ratio')->default('estandar_sector'); // Ej: estandar_sector, promedio_sistema
-            $table->decimal('valor', 8, 4);
+            $table->decimal('valor_referencia', 15, 4);
+            $table->string('fuente', 200)->nullable();
             $table->timestamps();
 
-            $table->unique(['sector_id', 'nombre_ratio', 'tipo_ratio']);
+            $table->unique(['sector_id', 'nombre_ratio'], 'unique_ratio_sector');
         });
     }
 
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('ratios');
+        Schema::dropIfExists('ratios_sector');
     }
 };

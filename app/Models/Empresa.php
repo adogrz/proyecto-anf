@@ -11,7 +11,11 @@ class Empresa extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['nombre', 'sector_id', 'usuario_id', 'plantilla_catalogo_id'];
+    protected $fillable = [
+        'nombre',
+        'sector_id',
+        'plantilla_catalogo_id'
+    ];
 
     public function plantillaCatalogo(): BelongsTo
     {
@@ -41,5 +45,10 @@ class Empresa extends Model
     public function datosVentaHistoricos(): HasMany
     {
         return $this->hasMany(DatoVentaHistorico::class);
+    }
+
+    public function ratiosCalculados(): HasMany
+    {
+        return $this->hasMany(RatioCalculado::class, 'empresa_id');
     }
 }

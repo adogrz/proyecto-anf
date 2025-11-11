@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/select';
 import { CuentaBase } from './columns';
 import { FormEventHandler } from 'react';
+import { type BreadcrumbItem } from '@/types';
 
 interface PlantillaCatalogo {
     id: number;
@@ -24,13 +25,14 @@ interface EditProps {
     plantillas: PlantillaCatalogo[];
     allCuentasBase: CuentaBase[];
     cuentaBase: CuentaBase;
+    breadcrumbs?: BreadcrumbItem[];
 }
 
-export default function Edit({ plantillas, allCuentasBase, cuentaBase }: EditProps) {
+export default function Edit({ plantillas, allCuentasBase, cuentaBase, breadcrumbs }: EditProps) {
     // If cuentaBase is null or undefined, render an error or loading state
     if (!cuentaBase) {
         return (
-            <AppLayout>
+            <AppLayout breadcrumbs={breadcrumbs}>
                 <Head title="Error" />
                 <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                     <Card>
@@ -61,7 +63,7 @@ export default function Edit({ plantillas, allCuentasBase, cuentaBase }: EditPro
     };
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title={`Editar Cuenta Base: ${cuentaBase.nombre}`} />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <Card>
@@ -151,14 +153,14 @@ export default function Edit({ plantillas, allCuentasBase, cuentaBase }: EditPro
                             <div>
                                 <Label htmlFor="parent_id">Cuenta Padre (Opcional)</Label>
                                 <Select
-                                    onValueChange={(value) => setData('parent_id', value === '' ? null : value)}
-                                    value={data.parent_id}
+                                    onValueChange={(value) => setData('parent_id', value === '_null' ? '' : value)}
+                                    value={data.parent_id || '_null'}
                                 >
                                     <SelectTrigger>
                                         <SelectValue placeholder="Selecciona una cuenta padre" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value={null}>Ninguna (Cuenta Principal)</SelectItem>
+                                        <SelectItem value="_null">Ninguna (Cuenta Principal)</SelectItem>
                                         {allCuentasBase
                                             .filter(cuenta => cuenta.plantilla_catalogo_id === parseInt(data.plantilla_catalogo_id) && cuenta.id !== cuentaBase.id)
                                             .map(cuenta => (

@@ -1,27 +1,31 @@
-
-import { Head, Link } from '@inertiajs/react';
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { columns as ratiosColumns, Ratio } from './ratios-columns';
-import { DataTable } from '@/components/ui/data-table';
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import AppLayout from '@/layouts/app-layout';
+import { Head, Link } from '@inertiajs/react';
 import { Sector } from './columns';
-import { Plus } from 'lucide-react';
 
 // Definiendo los props del componente
 interface ShowProps {
-    sector: Sector & { ratios: Ratio[] };
+    sector: Sector;
 }
 
 export default function SectoresShow({ sector }: ShowProps) {
     return (
         <AppLayout>
             <Head title={`Sector: ${sector.nombre}`} />
-            <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
-                <div className="flex justify-between items-center mb-6">
+            <div className="container mx-auto px-4 py-8 sm:px-6 lg:px-8">
+                <div className="mb-6 flex items-center justify-between">
                     <div>
                         <h1 className="text-2xl font-bold">{sector.nombre}</h1>
-                        <p className="text-lg text-gray-600">{sector.descripcion}</p>
+                        <p className="text-lg text-gray-600">
+                            {sector.descripcion}
+                        </p>
                     </div>
                     <Button asChild variant="outline">
                         <Link href={route('sectores.index')}>
@@ -32,26 +36,30 @@ export default function SectoresShow({ sector }: ShowProps) {
 
                 <Card>
                     <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <CardTitle>Ratios Estándar del Sector</CardTitle>
-                                <CardDescription>Estos son los ratios estándar para el sector {sector.nombre}.</CardDescription>
-                            </div>
-                            <Button asChild>
-                                <Link href={route('sectores.ratios.create', sector.id)}>
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Añadir Ratio
-                                </Link>
-                            </Button>
-                        </div>
+                        <CardTitle>Información del Sector</CardTitle>
+                        <CardDescription>
+                            Detalles del sector {sector.nombre}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <DataTable 
-                            columns={ratiosColumns} 
-                            data={sector.ratios} 
-                            filterColumn="nombre_ratio"
-                            filterPlaceholder="Filtrar por nombre..."
-                        />
+                        <dl className="space-y-4">
+                            <div>
+                                <dt className="text-sm font-medium text-gray-500">
+                                    Nombre
+                                </dt>
+                                <dd className="mt-1 text-sm text-gray-900">
+                                    {sector.nombre}
+                                </dd>
+                            </div>
+                            <div>
+                                <dt className="text-sm font-medium text-gray-500">
+                                    Descripción
+                                </dt>
+                                <dd className="mt-1 text-sm text-gray-900">
+                                    {sector.descripcion || 'Sin descripción'}
+                                </dd>
+                            </div>
+                        </dl>
                     </CardContent>
                 </Card>
             </div>

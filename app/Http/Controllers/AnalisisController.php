@@ -21,7 +21,7 @@ class AnalisisController extends Controller
     public function obtenerAnalisis(Request $request, Empresa $empresa)
     {
         // Verificar que la empresa pertenece al usuario autenticado
-        if ($empresa->usuario_id !== auth()->user()->id) {
+        if ($empresa->usuario_id !== auth()->user()->id && !auth()->user()->hasRole('Administrador')) {
             abort(403, 'No tienes permiso para ver esta empresa.');
         }
 
@@ -33,7 +33,7 @@ class AnalisisController extends Controller
 
         // Obtener años disponibles según el tipo de análisis
         $tipoEstado = $tipoAnalisis === 'horizontal' ? 'balance_general' : 'estado_resultados';
-        
+
         $aniosDisponibles = $empresa->estadosFinancieros()
             ->where('tipo_estado', $tipoEstado)
             ->distinct()
@@ -68,7 +68,7 @@ class AnalisisController extends Controller
         $resultado = [];
         $totalesPorSeccion = [];
         $seccionActual = null;
-        
+
         // Identificar qué cuentas son "hojas" (tienen valores pero sus hijos no)
         $codigosConValores = [];
         foreach ($cuentas as $cuenta) {
@@ -89,7 +89,7 @@ class AnalisisController extends Controller
                         break;
                     }
                 }
-                
+
                 if ($esHojaGranTotal) {
                     foreach ($c['valores'] as $anio => $valor) {
                         if (!isset($granTotalPorAnio[$anio])) {
@@ -112,7 +112,7 @@ class AnalisisController extends Controller
                     if (!empty($totalesPorSeccion[$seccionActual]['valores'])) {
                         $anios = array_keys($totalesPorSeccion[$seccionActual]['valores']);
                         sort($anios);
-                        
+
                         // Variaciones horizontales
                         for ($i = 1; $i < count($anios); $i++) {
                             $anioActual = $anios[$i];
@@ -127,18 +127,18 @@ class AnalisisController extends Controller
                             $totalesPorSeccion[$seccionActual]['variaciones_absolutas'][$anioActual] = $variacionAbsoluta;
                             $totalesPorSeccion[$seccionActual]['variaciones_porcentuales'][$anioActual] = $variacionPorcentual;
                         }
-                        
+
                         // Porcentajes verticales del total
                         foreach ($anios as $anio) {
                             $valorTotal = $totalesPorSeccion[$seccionActual]['valores'][$anio] ?? 0;
                             $granTotal = $granTotalPorAnio[$anio] ?? 1;
-                            
+
                             if ($granTotal > 0) {
                                 $porcentaje = ($valorTotal / $granTotal) * 100;
                             } else {
                                 $porcentaje = 0;
                             }
-                            
+
                             $totalesPorSeccion[$seccionActual]['porcentajes_verticales'][$anio] = $porcentaje;
                         }
                     }
@@ -209,7 +209,7 @@ class AnalisisController extends Controller
             if (!empty($totalesPorSeccion[$seccionActual]['valores'])) {
                 $anios = array_keys($totalesPorSeccion[$seccionActual]['valores']);
                 sort($anios);
-                
+
                 // Variaciones horizontales
                 for ($i = 1; $i < count($anios); $i++) {
                     $anioActual = $anios[$i];
@@ -224,18 +224,18 @@ class AnalisisController extends Controller
                     $totalesPorSeccion[$seccionActual]['variaciones_absolutas'][$anioActual] = $variacionAbsoluta;
                     $totalesPorSeccion[$seccionActual]['variaciones_porcentuales'][$anioActual] = $variacionPorcentual;
                 }
-                
+
                 // Porcentajes verticales del total
                 foreach ($anios as $anio) {
                     $valorTotal = $totalesPorSeccion[$seccionActual]['valores'][$anio] ?? 0;
                     $granTotal = $granTotalPorAnio[$anio] ?? 1;
-                    
+
                     if ($granTotal > 0) {
                         $porcentaje = ($valorTotal / $granTotal) * 100;
                     } else {
                         $porcentaje = 0;
                     }
-                    
+
                     $totalesPorSeccion[$seccionActual]['porcentajes_verticales'][$anio] = $porcentaje;
                 }
             }
@@ -251,7 +251,7 @@ class AnalisisController extends Controller
         $resultado = [];
         $totalesPorSeccion = [];
         $seccionActual = null;
-        
+
         // Identificar cuentas "hoja"
         $codigosConValores = [];
         foreach ($cuentas as $cuenta) {
@@ -271,16 +271,16 @@ class AnalisisController extends Controller
                     foreach ($anios as $anio) {
                         $valorTotal = $totalesPorSeccion[$seccionActual]['valores'][$anio] ?? 0;
                         $totalIngresos = $totalesIngresos[$anio] ?? 1;
-                        
+
                         if ($totalIngresos > 0) {
                             $porcentaje = ($valorTotal / $totalIngresos) * 100;
                         } else {
                             $porcentaje = 0;
                         }
-                        
+
                         $totalesPorSeccion[$seccionActual]['porcentajes_verticales'][$anio] = $porcentaje;
                     }
-                    
+
                     $resultado[] = $totalesPorSeccion[$seccionActual];
                 }
 
@@ -347,13 +347,13 @@ class AnalisisController extends Controller
             foreach ($anios as $anio) {
                 $valorTotal = $totalesPorSeccion[$seccionActual]['valores'][$anio] ?? 0;
                 $totalIngresos = $totalesIngresos[$anio] ?? 1;
-                
+
                 if ($totalIngresos > 0) {
                     $porcentaje = ($valorTotal / $totalIngresos) * 100;
                 } else {
                     $porcentaje = 0;
                 }
-                
+
                 $totalesPorSeccion[$seccionActual]['porcentajes_verticales'][$anio] = $porcentaje;
             }
 
@@ -385,7 +385,7 @@ class AnalisisController extends Controller
             foreach ($estado->detalles as $detalle) {
                 $catalogoCuenta = $detalle->catalogoCuenta;
                 $cuentaBase = $catalogoCuenta->cuentaBase;
-                
+
                 $codigoInicial = substr($cuentaBase->codigo, 0, 1);
                 if (!in_array($codigoInicial, ['1', '2', '3'])) {
                     continue;
@@ -409,19 +409,19 @@ class AnalisisController extends Controller
                 $cuentasAgrupadas[$codigoCuenta]['valores'][$estado->anio] = $detalle->valor;
             }
         }
-        
+
         // Segundo: identificar cuentas "hoja" (que tienen valores pero NO tienen subcuentas)
         $codigosConValores = array_keys($cuentasAgrupadas);
         $totalesActivosPorAnio = [];
-        
+
         foreach ($estadosFinancieros as $estado) {
             $totalActivos = 0;
-            
+
             foreach ($cuentasAgrupadas as $codigo => $cuenta) {
                 // Solo procesar activos en este año
                 if (substr($codigo, 0, 1) !== '1') continue;
                 if (!isset($cuenta['valores'][$estado->anio])) continue;
-                
+
                 // Verificar si es hoja
                 $esHoja = true;
                 foreach ($codigosConValores as $otroCodigo) {
@@ -430,16 +430,16 @@ class AnalisisController extends Controller
                         break;
                     }
                 }
-                
+
                 if ($esHoja) {
                     $totalActivos += $cuenta['valores'][$estado->anio];
                 }
             }
-            
+
             $totalesActivosPorAnio[$estado->anio] = $totalActivos;
         }
 
-        // Calcular variaciones 
+        // Calcular variaciones
         foreach ($cuentasAgrupadas as $codigo => &$cuenta) {
             for ($i = 1; $i < count($anios); $i++) {
                 $anioActual = $anios[$i];
@@ -454,18 +454,18 @@ class AnalisisController extends Controller
                 $cuenta['variaciones_absolutas'][$anioActual] = $variacionAbsoluta;
                 $cuenta['variaciones_porcentuales'][$anioActual] = $variacionPorcentual;
             }
-            
+
             // Calcular porcentajes verticales para cada año
             foreach ($anios as $anio) {
                 $valor = $cuenta['valores'][$anio] ?? 0;
                 $totalActivos = $totalesActivosPorAnio[$anio] ?? 1;
-                
+
                 if ($totalActivos > 0) {
                     $porcentaje = ($valor / $totalActivos) * 100;
                 } else {
                     $porcentaje = 0;
                 }
-                
+
                 $cuenta['porcentajes_verticales'][$anio] = $porcentaje;
             }
         }
@@ -502,7 +502,7 @@ class AnalisisController extends Controller
             foreach ($estado->detalles as $detalle) {
                 $catalogoCuenta = $detalle->catalogoCuenta;
                 $cuentaBase = $catalogoCuenta->cuentaBase;
-                
+
                 // FILTRO CRÍTICO: Solo cuentas que pertenecen al Estado de Resultados (códigos 4 y 5)
                 $codigoInicial = substr($cuentaBase->codigo, 0, 1);
                 if (!in_array($codigoInicial, ['4', '5'])) {
@@ -527,19 +527,19 @@ class AnalisisController extends Controller
                 $cuentasAgrupadas[$codigoCuenta]['valores'][$estado->anio] = $detalle->valor;
             }
         }
-        
+
         // Segundo: calcular totales de ingresos usando detección de hojas
         $codigosConValores = array_keys($cuentasAgrupadas);
         $totalesIngresosPorAnio = [];
-        
+
         foreach ($estadosFinancieros as $estado) {
             $totalIngresos = 0;
-            
+
             foreach ($cuentasAgrupadas as $codigo => $cuenta) {
                 // Solo procesar ingresos (cuentas 4) en este año
                 if (substr($codigo, 0, 1) !== '4') continue;
                 if (!isset($cuenta['valores'][$estado->anio])) continue;
-                
+
                 // Verificar si es hoja (no tiene subcuentas)
                 $esHoja = true;
                 foreach ($codigosConValores as $otroCodigo) {
@@ -548,12 +548,12 @@ class AnalisisController extends Controller
                         break;
                     }
                 }
-                
+
                 if ($esHoja) {
                     $totalIngresos += $cuenta['valores'][$estado->anio];
                 }
             }
-            
+
             $totalesIngresosPorAnio[$estado->anio] = $totalIngresos;
         }
 
@@ -586,7 +586,7 @@ class AnalisisController extends Controller
 
         foreach ($cuentas as $cuenta) {
             $codigo = $cuenta['codigo'];
-            
+
             if (!in_array($codigo, $codigosVistos)) {
                 $cuentasUnicas[] = $cuenta;
                 $codigosVistos[] = $codigo;

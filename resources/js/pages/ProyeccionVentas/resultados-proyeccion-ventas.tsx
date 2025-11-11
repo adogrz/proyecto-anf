@@ -1,5 +1,20 @@
 import { Button } from '@/components/ui/button';
 import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardHeader,
+    CardTitle,
+} from '@/components/ui/card';
+import {
+    ChartConfig,
+    ChartContainer,
+    ChartLegend,
+    ChartLegendContent,
+    ChartTooltip,
+    ChartTooltipContent,
+} from '@/components/ui/chart';
+import {
     Table,
     TableBody,
     TableCell,
@@ -11,16 +26,7 @@ import AppLayout from '@/layouts/app-layout';
 import { BreadcrumbItem } from '@/types';
 import { Head, router } from '@inertiajs/react';
 import { ArrowLeft } from 'lucide-react';
-import {
-    CartesianGrid,
-    Legend,
-    Line,
-    LineChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 
 interface SerieProyeccion {
     periodoLabel: string;
@@ -56,6 +62,26 @@ export default function ProyeccionesResultados({
         },
         { title: 'Resultados de Proyección', href: '#' },
     ];
+
+    // Configuración del chart para shadcn/ui
+    const chartConfig = {
+        historico: {
+            label: 'Datos Históricos',
+            color: 'var(--chart-1)',
+        },
+        minimos: {
+            label: 'Proy. Mínimos Cuadrados',
+            color: 'var(--chart-2)',
+        },
+        absoluto: {
+            label: 'Proy. Inc. Absoluto',
+            color: 'var(--chart-3)',
+        },
+        porcentual: {
+            label: 'Proy. Inc. Porcentual',
+            color: 'var(--chart-4)',
+        },
+    } satisfies ChartConfig;
 
     const formatCurrency = (value: number | null) => {
         if (value === null) return 'N/A';
@@ -97,86 +123,105 @@ export default function ProyeccionesResultados({
                 </div>
 
                 {/* Gráfico de líneas */}
-                <h2 className="mb-4 text-lg font-semibold">
-                    Gráfico de Proyecciones
-                </h2>
-                <ResponsiveContainer width="100%" height={400}>
-                    <LineChart data={serie}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis
-                            dataKey="periodoLabel"
-                            tick={{ fontSize: 12 }}
-                            angle={-45}
-                            textAnchor="end"
-                            height={70}
-                            interval="preserveStartEnd"
-                        />
-                        <YAxis
-                            tickFormatter={formatCurrencyCompact}
-                            tick={{ fontSize: 12 }}
-                        />
-                        <Tooltip
-                            formatter={(value: unknown) => {
-                                const numValue =
-                                    typeof value === 'number' ? value : null;
-                                return formatCurrency(numValue);
-                            }}
-                            labelStyle={{ fontWeight: 'bold' }}
-                            contentStyle={{
-                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                border: '1px solid #ccc',
-                                borderRadius: '8px',
-                                padding: '10px',
-                            }}
-                        />
-                        <Legend
-                            wrapperStyle={{ paddingTop: '20px' }}
-                            iconType="line"
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="historico"
-                            stroke="#1d4ed8"
-                            name="Datos Históricos"
-                            strokeWidth={2.5}
-                            dot={{ r: 4, fill: '#1d4ed8' }}
-                            activeDot={{ r: 6 }}
-                        />
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Gráfico de Proyecciones</CardTitle>
+                        <CardDescription>
+                            Comparativa de datos históricos y proyecciones
+                            futuras
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ChartContainer
+                            config={chartConfig}
+                            className="min-h-[400px] w-full"
+                        >
+                            <LineChart
+                                accessibilityLayer
+                                data={serie}
+                                margin={{
+                                    left: 12,
+                                    right: 12,
+                                }}
+                            >
+                                <CartesianGrid vertical={true} />
+                                <XAxis
+                                    dataKey="periodoLabel"
+                                    tick={{ fontSize: 12 }}
+                                    angle={-45}
+                                    textAnchor="end"
+                                    height={70}
+                                    interval="preserveStartEnd"
+                                />
+                                <YAxis
+                                    tickFormatter={formatCurrencyCompact}
+                                    tick={{ fontSize: 12 }}
+                                />
+                                <ChartTooltip
+                                    content={<ChartTooltipContent />}
+                                />
+                                <ChartLegend
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    content={(props: any) => (
+                                        <ChartLegendContent {...props} />
+                                    )}
+                                />
 
-                        <Line
-                            type="monotone"
-                            dataKey="minimos"
-                            stroke="#10b981"
-                            name="Proy. Mínimos Cuadrados"
-                            strokeWidth={2}
-                            strokeDasharray="5 3"
-                            dot={{ r: 3, fill: '#10b981' }}
-                            activeDot={{ r: 5 }}
-                        />
+                                {/* Línea de Datos Históricos */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="historico"
+                                    stroke="var(--color-historico)"
+                                    strokeWidth={2.5}
+                                    dot={{
+                                        fill: 'var(--color-historico)',
+                                        r: 3,
+                                    }}
+                                    activeDot={{ r: 6 }}
+                                />
 
-                        <Line
-                            type="monotone"
-                            dataKey="absoluto"
-                            stroke="#f59e0b"
-                            name="Proy. Incremento Absoluto"
-                            strokeWidth={2}
-                            strokeDasharray="5 5"
-                            dot={{ r: 3, fill: '#f59e0b' }}
-                            activeDot={{ r: 5 }}
-                        />
+                                {/* Línea de Proyección Mínimos Cuadrados */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="minimos"
+                                    stroke="var(--color-minimos)"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 3"
+                                    dot={{ fill: 'var(--color-minimos)', r: 3 }}
+                                    activeDot={{ r: 5 }}
+                                />
 
-                        <Line
-                            type="monotone"
-                            dataKey="porcentual"
-                            stroke="#ef4444"
-                            name="Proy. Incremento Porcentual"
-                            strokeWidth={2}
-                            strokeDasharray="6 4"
-                            dot={{ r: 3, fill: '#ef4444' }}
-                            activeDot={{ r: 5 }}
-                        />
-                    </LineChart>
-                </ResponsiveContainer>
+                                {/* Línea de Proyección Incremento Absoluto */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="absoluto"
+                                    stroke="var(--color-absoluto)"
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5"
+                                    dot={{
+                                        fill: 'var(--color-absoluto)',
+                                        r: 3,
+                                    }}
+                                    activeDot={{ r: 5 }}
+                                />
+
+                                {/* Línea de Proyección Incremento Porcentual */}
+                                <Line
+                                    type="monotone"
+                                    dataKey="porcentual"
+                                    stroke="var(--color-porcentual)"
+                                    strokeWidth={2}
+                                    strokeDasharray="6 4"
+                                    dot={{
+                                        fill: 'var(--color-porcentual)',
+                                        r: 3,
+                                    }}
+                                    activeDot={{ r: 5 }}
+                                />
+                            </LineChart>
+                        </ChartContainer>
+                    </CardContent>
+                </Card>
 
                 {/* Tabla de datos */}
                 <div>

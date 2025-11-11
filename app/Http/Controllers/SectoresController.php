@@ -33,8 +33,6 @@ class SectoresController extends Controller
 
     public function show(Sector $sector)
     {
-        // Since ratios are a nested resource, we can show them here.
-        $sector->load('ratios');
         return Inertia::render('Administracion/Sectores/Show', [
             'sector' => $sector,
         ]);

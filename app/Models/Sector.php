@@ -14,8 +14,9 @@ class Sector extends Model
 
     protected $fillable = ['nombre', 'descripcion'];
 
+    // Relaciones
     public function ratios(): HasMany
     {
-        return $this->hasMany(Ratio::class);
+        return $this->hasMany(RatioSector::class, 'sector_id');
     }
 }
