@@ -14,6 +14,7 @@ use App\Http\Controllers\Administracion\PlantillaCatalogoController;
 use App\Http\Controllers\ImportacionController;
 use App\Http\Controllers\Administracion\ImportacionCuentasBaseController;
 use App\Http\Controllers\ProyeccionVentasController;
+use App\Http\Controllers\CalculoRatiosController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -118,6 +119,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('importacion.crear-empresa')
             ->middleware(['auth']);
     });
+
+   //Calculo de los 10 ratios financieros principales
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('empresas/{empresa}/ratios/{anio}/calcular', [CalculoRatiosController::class, 'calcular'])
+        ->name('ratios.calcular')
+        ->middleware('can:ratios.create');
+});
+ 
+Route::get('empresas/{empresa}/ratios/calcular-todos', [CalculoRatiosController::class, 'calcularTodos'])
+    ->name('ratios.calcular.todos')
+    ->middleware('can:ratios.create');
+
+
 });
 
 Route::middleware(['auth'])->group(function () {
