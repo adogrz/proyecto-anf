@@ -33,10 +33,34 @@ class AnalisisRatiosDashboardService
 
         if (empty($aniosDisponibles)) {
             return [
-                'empresa' => $empresa,
+                'empresa' => [
+                    'id' => $empresa->id,
+                    'nombre' => $empresa->nombre,
+                    'sector' => $empresa->sector?->nombre ?? 'Sin sector',
+                    'sector_id' => $empresa->sector_id,
+                ],
                 'anios_disponibles' => [],
-                'anio_seleccionado' => null,
+                'anio_seleccionado' => now()->year,
                 'tiene_datos' => false,
+                'metricas_resumen' => [
+                    'total_ratios' => 0,
+                    'mejor_categoria' => null,
+                    'categoria_oportunidad' => null,
+                    'mejor_mejora' => null,
+                ],
+                'preview_benchmark' => [
+                    'ratios_cumplen' => 0,
+                    'total_ratios' => 0,
+                    'porcentaje' => 0,
+                ],
+                'preview_promedio' => [
+                    'superiores' => 0,
+                    'total_categorias' => 0,
+                ],
+                'preview_evolucion' => [
+                    'anios_datos' => 0,
+                    'tendencia_general' => 'sin_datos',
+                ],
             ];
         }
 

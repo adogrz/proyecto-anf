@@ -12,6 +12,8 @@ class RatioPromedioService
 {
     use TieneRatiosFinancieros;
 
+    private const EPSILON = 1e-9;
+
     /**
      * Compara ratios de empresa con promedios del sector
      */
@@ -32,6 +34,7 @@ class RatioPromedioService
 
         return $ratiosEmpresa->map(function ($ratio) use ($promedios) {
             $promedio = $promedios->get($ratio->nombre_ratio);
+            $promedioValido = $promedio && $this->esPromedioValido($promedio);
 
             return [
                 'nombre_ratio' => $ratio->nombre_amigable,
@@ -39,7 +42,7 @@ class RatioPromedioService
                 'valor_empresa' => (float)$ratio->valor_ratio,
                 'formula' => $ratio->formula,
                 'categoria' => $this->categoriaRatio($ratio->nombre_ratio),
-                'promedio_sector' => $promedio ? [
+                'promedio_sector' => $promedioValido ? [
                     'valor' => $promedio['promedio'],
                     'cantidad_empresas' => $promedio['cantidad'],
                     'minimo' => $promedio['minimo'],
@@ -48,8 +51,19 @@ class RatioPromedioService
                     'posicion_relativa' => $this->calcularPosicion($ratio->valor_ratio, $promedio['promedio']),
                     'interpretacion' => $this->interpretarPromedios($ratio->nombre_ratio, $ratio->valor_ratio, $promedio['promedio']),
                 ] : null,
+                'sin_referencia' => !$promedioValido,
             ];
         })->values()->all();
+    }
+
+    private function esPromedioValido(array $promedio): bool
+    {
+        // Considerar inválido si solo hay una empresa o el promedio es 0 y min/max también 0
+        if (($promedio['cantidad'] ?? 0) < 2) return false;
+        if (abs($promedio['promedio']) < self::EPSILON && abs($promedio['minimo']) < self::EPSILON && abs($promedio['maximo']) < self::EPSILON) {
+            return false;
+        }
+        return true;
     }
 
     private function calcularPromediosPorRatio(int $sectorId, int $anio): Collection
@@ -59,6 +73,7 @@ class RatioPromedioService
         return DB::table('ratios_calculados')
             ->whereIn('empresa_id', $empresasSector)
             ->where('anio', $anio)
+            ->where('valor_ratio', '<>', 0)
             ->groupBy('nombre_ratio')
             ->select([
                 'nombre_ratio',
@@ -71,7 +86,7 @@ class RatioPromedioService
             ->mapWithKeys(function ($item) {
                 return [$item->nombre_ratio => [
                     'promedio' => round($item->promedio, 4),
-                    'cantidad' => $item->cantidad,
+                    'cantidad' => (int)$item->cantidad,
                     'minimo' => round($item->minimo, 4),
                     'maximo' => round($item->maximo, 4),
                 ]];
@@ -80,8 +95,14 @@ class RatioPromedioService
 
     private function calcularDiferencia(float $valorEmpresa, float $promedio): array
     {
+        if (abs($promedio) < self::EPSILON) {
+            return [
+                'absoluta' => round($valorEmpresa, 4),
+                'porcentual' => 0.0, // no se puede establecer porcentaje relativo
+            ];
+        }
         $diferencia = $valorEmpresa - $promedio;
-        $porcentaje = $promedio != 0 ? ($diferencia / abs($promedio)) * 100 : 0;
+        $porcentaje = ($diferencia / abs($promedio)) * 100;
 
         return [
             'absoluta' => round($diferencia, 4),
@@ -91,6 +112,15 @@ class RatioPromedioService
 
     private function calcularPosicion(float $valorEmpresa, float $promedio): string
     {
+        // Evitar división por cero cuando no hay datos suficientes o el promedio del sector es 0
+        if (abs($promedio) < self::EPSILON) {
+            if (abs($valorEmpresa) < self::EPSILON) {
+                return 'En el promedio';
+            }
+            // Si el promedio es 0, usar solo el signo del valor de la empresa
+            return $valorEmpresa > 0 ? 'Superior' : 'Inferior';
+        }
+
         $diferencia = (($valorEmpresa - $promedio) / abs($promedio)) * 100;
 
         return match (true) {
@@ -105,6 +135,10 @@ class RatioPromedioService
 
     private function interpretarPromedios(string $nombreRatio, float $valorEmpresa, float $promedio): string
     {
+        if (abs($promedio) < self::EPSILON) {
+            return 'Sin suficiente información sectorial para este ratio';
+        }
+
         $diferencia = $this->calcularDiferencia($valorEmpresa, $promedio);
 
         if (abs($diferencia['porcentual']) < 5) {
