@@ -5,6 +5,8 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BreadcrumbItem } from '@/types';
+import { route } from 'ziggy-js';
 
 // Interfaces
 interface Empresa {
@@ -48,13 +50,21 @@ export default function EstadosFinancierosShow({ estadoFinanciero, detallesAgrup
         return tipo.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
     };
 
+    const BREADCRUMBS: BreadcrumbItem[] = [
+        { title: 'Home', href: route('dashboard') },
+        { title: 'Empresas', href: route('empresas.index') },
+        { title: estadoFinanciero.empresa.nombre, href: route('empresas.show', estadoFinanciero.empresa.id) },
+        { title: 'Estados Financieros', href: route('empresas.estados-financieros.index', estadoFinanciero.empresa.id) },
+        { title: `${formatTipoEstado(estadoFinanciero.tipo_estado)} ${estadoFinanciero.anio}`, href: route('empresas.estados-financieros.show', { empresa: estadoFinanciero.empresa.id, estados_financiero: estadoFinanciero.id }) },
+    ];
+
     const groupTotals = Object.keys(detallesAgrupados).reduce((acc, groupName) => {
         acc[groupName] = detallesAgrupados[groupName].reduce((sum, detalle) => sum + Number(detalle.valor), 0);
         return acc;
     }, {} as Record<string, number>);
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={`${formatTipoEstado(estadoFinanciero.tipo_estado)} ${estadoFinanciero.anio}`} />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center mb-6">

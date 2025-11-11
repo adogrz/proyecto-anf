@@ -63,9 +63,31 @@ class EmpresasController extends Controller
 
     public function show(Empresa $empresa)
     {
-        // Eager load relationships
-        $empresa->load(['sector', 'plantillaCatalogo', 'catalogoCuentas', 'estadosFinancieros']);
-        return Inertia::render('Administracion/Empresas/Show', ['empresa' => $empresa]);
+        // Load relationships
+        $empresa->load([
+            'sector',
+            'plantillaCatalogo',
+        ]);
+
+        // Apply withCount to the $empresa instance's query
+        $empresa->loadCount([
+            'catalogoCuentas',
+            'estadosFinancieros',
+            'datosVentaHistoricos',
+            'ratiosCalculados'
+        ]);
+
+        $stats = [
+            'catalogo_cuentas_count' => $empresa->catalogo_cuentas_count,
+            'estados_financieros_count' => $empresa->estados_financieros_count,
+            'datos_venta_historicos_count' => $empresa->datos_venta_historicos_count,
+            'ratios_calculados_count' => $empresa->ratios_calculados_count,
+        ];
+
+        return Inertia::render('Administracion/Empresas/Show', [
+            'empresa' => $empresa,
+            'stats' => $stats
+        ]);
     }
 
     public function edit(Empresa $empresa)

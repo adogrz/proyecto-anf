@@ -54,7 +54,7 @@ const ImportSuccessModal: React.FC<ImportSuccessModalProps> = ({ isOpen, onClose
         <div className="py-4">
           <p className="text-sm text-muted-foreground">¿Qué deseas hacer ahora?</p>
         </div>
-        <DialogFooter className="flex flex-col sm:flex-row sm:justify-end gap-2">
+        <DialogFooter className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end gap-2">
           <Button variant="outline" onClick={handleContinueImporting}>
             Seguir Importando
           </Button>
