@@ -46,4 +46,9 @@ class CuentaBase extends Model
     {
         return $this->children()->with('childrenRecursive');
     }
+
+    public function catalogoCuentas(): HasMany
+    {
+        return $this->hasMany(CatalogoCuenta::class, 'cuenta_base_id');
+    }
 }

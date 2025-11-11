@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+
 use App\Http\Requests\StoreEstadoFinancieroRequest;
 use App\Http\Requests\UpdateEstadoFinancieroRequest;
 use Illuminate\Support\Facades\DB;
@@ -19,13 +20,36 @@ class EstadosFinancierosController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index(Empresa $empresa)
+    public function index(Request $request, Empresa $empresa)
     {
-        $empresa->load('estadosFinancieros');
+        $filterAnio = $request->input('anio');
+        $filterTipoEstado = $request->input('tipo_estado');
+
+        $estadosFinancierosQuery = $empresa->estadosFinancieros();
+
+        if ($filterAnio) {
+            $estadosFinancierosQuery->where('anio', $filterAnio);
+        }
+
+        if ($filterTipoEstado) {
+            $estadosFinancierosQuery->where('tipo_estado', $filterTipoEstado);
+        }
+
+        $estadosFinancieros = $estadosFinancierosQuery->latest()->get();
+
+        // Get all unique years and types for filter options
+        $availableAnios = $empresa->estadosFinancieros()->distinct()->pluck('anio')->sortDesc()->values()->toArray();
+        $availableTiposEstado = ['balance_general', 'estado_resultados']; // Assuming these are the only two types
 
         return Inertia::render('Administracion/Empresas/EstadosFinancieros/Index', [
             'empresa' => $empresa,
-            'estadosFinancieros' => $empresa->estadosFinancieros,
+            'estadosFinancieros' => $estadosFinancieros,
+            'filters' => [
+                'anio' => $filterAnio,
+                'tipo_estado' => $filterTipoEstado,
+            ],
+            'availableAnios' => $availableAnios,
+            'availableTiposEstado' => $availableTiposEstado,
         ]);
     }
 
@@ -88,21 +112,52 @@ class EstadosFinancierosController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Empresa $empresa, $estadoFinancieroId) // Changed parameter name to $estadoFinancieroId
+    public function show(Empresa $empresa, $estadoFinancieroId)
     {
-        $estadoFinanciero = $empresa->estadosFinancieros()->findOrFail($estadoFinancieroId); // Manually find and scope
+        $estadoFinanciero = $empresa->estadosFinancieros()->findOrFail($estadoFinancieroId);
 
-        $estadoFinanciero->load(['empresa', 'detalles.catalogoCuenta.cuentaBase']);
+        $estadoFinanciero->load([
+            'empresa',
+            'detalles.catalogoCuenta.cuentaBase' => function ($query) {
+                $query->select('id', 'nombre', 'codigo', 'naturaleza', 'parent_id');
+            },
+            'detalles.catalogoCuenta.cuentaBase.parentRecursive' // Ensure parent hierarchy is loaded
+        ]);
 
-        // Agrupar detalles por tipo de cuenta base (Activo, Pasivo, etc.)
-        $detallesAgrupados = $estadoFinanciero->detalles->groupBy(function ($detalle) {
-            // Navegar a través de las relaciones para encontrar el ancestro raíz
-            $cuentaBase = $detalle->catalogoCuenta->cuentaBase;
-            while ($cuentaBase && $cuentaBase->parent_id) {
-                $cuentaBase = $cuentaBase->parent;
+        // Map detalles to ensure all necessary data is present and structured
+        $mappedDetalles = $estadoFinanciero->detalles->map(function ($detalle) {
+            $catalogoCuenta = $detalle->catalogoCuenta;
+            $cuentaBase = $catalogoCuenta ? $catalogoCuenta->cuentaBase : null;
+            $rootCuentaBase = null;
+
+            if ($cuentaBase) {
+                $rootCuentaBase = $cuentaBase;
+                while ($rootCuentaBase->parent_id && $rootCuentaBase->parent) {
+                    $rootCuentaBase = $rootCuentaBase->parent;
+                }
             }
-            return $cuentaBase ? $cuentaBase->nombre : 'Sin categoría';
+
+            return [
+                'id' => $detalle->id,
+                'valor' => $detalle->valor,
+                'catalogo_cuenta' => $catalogoCuenta ? [
+                    'id' => $catalogoCuenta->id,
+                    'codigo_cuenta' => $catalogoCuenta->codigo_cuenta,
+                    'nombre_cuenta' => $catalogoCuenta->nombre_cuenta,
+                    'cuenta_base' => $cuentaBase ? [
+                        'id' => $cuentaBase->id,
+                        'nombre' => $cuentaBase->nombre,
+                        'codigo' => $cuentaBase->codigo,
+                        'naturaleza' => $cuentaBase->naturaleza,
+                        'parent_id' => $cuentaBase->parent_id,
+                    ] : null,
+                ] : null,
+                'root_cuenta_base_name' => $rootCuentaBase ? $rootCuentaBase->nombre : 'Sin categoría',
+            ];
         });
+
+        // Group mapped detalles by their root_cuenta_base_name
+        $detallesAgrupados = $mappedDetalles->groupBy('root_cuenta_base_name');
 
         return Inertia::render('Administracion/Empresas/EstadosFinancieros/Show', [
             'estadoFinanciero' => $estadoFinanciero,
@@ -110,20 +165,18 @@ class EstadosFinancierosController extends Controller
         ]);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Empresa $empresa, EstadoFinanciero $estadoFinanciero)
+    public function edit(Empresa $empresa, $estadoFinancieroId)
     {
-        // Ensure the estadoFinanciero belongs to the given empresa
-        if ($estadoFinanciero->empresa_id !== $empresa->id) {
-            abort(404);
-        }
+        $estadoFinanciero = $empresa->estadosFinancieros()->findOrFail($estadoFinancieroId);
+
+        // The check if ($estadoFinanciero->empresa_id !== $empresa->id) is now redundant
+        // because findOrFail($estadoFinancieroId) is scoped to $empresa->estadosFinancieros()
+        // If the model is not found within the company's financial statements, a 404 will be thrown by findOrFail.
 
         $estadoFinanciero->load(['detalles.catalogoCuenta.cuentaBase']);
 
-        // Fetch all CatalogoCuentas and eager load their cuentaBase and its parent hierarchy
-        $catalogoCuentas = CatalogoCuenta::with(['cuentaBase' => function ($query) {
+        // Fetch CatalogoCuentas for the current company and eager load their cuentaBase and its parent hierarchy
+        $catalogoCuentas = $empresa->catalogoCuentas()->with(['cuentaBase' => function ($query) {
             $query->with('parentRecursive');
         }])->get();
 
@@ -133,12 +186,12 @@ class EstadosFinancierosController extends Controller
         return Inertia::render('Administracion/Empresas/EstadosFinancieros/Edit', [
             'empresa' => $empresa,
             'estadoFinanciero' => $estadoFinanciero,
-            'cuentasBaseRaiz' => $cuentasBaseRaiz,
+            // 'cuentasBaseRaiz' => $cuentasBaseRaiz, // Removed as it's not used in the frontend
             'catalogoCuentas' => $catalogoCuentas->map(function ($item) {
                 return [
                     'id' => $item->id,
-                    'nombre' => $item->nombre,
-                    'codigo' => $item->codigo,
+                    'nombre' => $item->nombre_cuenta, // Corrected to nombre_cuenta
+                    'codigo' => $item->codigo_cuenta, // Corrected to codigo_cuenta
                     'cuenta_base_id' => $item->cuenta_base_id,
                     'cuenta_base_nombre' => $item->cuentaBase->nombre ?? null,
                 ];
@@ -149,12 +202,13 @@ class EstadosFinancierosController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateEstadoFinancieroRequest $request, Empresa $empresa, EstadoFinanciero $estadoFinanciero)
+    public function update(UpdateEstadoFinancieroRequest $request, Empresa $empresa, $estadoFinancieroId)
     {
-        // Ensure the estadoFinanciero belongs to the given empresa
-        if ($estadoFinanciero->empresa_id !== $empresa->id) {
-            abort(404);
-        }
+        $estadoFinanciero = $empresa->estadosFinancieros()->findOrFail($estadoFinancieroId);
+
+        // The check if ($estadoFinanciero->empresa_id !== $empresa->id) is now redundant
+        // because findOrFail($estadoFinancieroId) is scoped to $empresa->estadosFinancieros()
+        // If the model is not found within the company's financial statements, a 404 will be thrown by findOrFail.
 
         DB::transaction(function () use ($request, $estadoFinanciero) {
             $estadoFinanciero->update([
@@ -200,12 +254,13 @@ class EstadosFinancierosController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Empresa $empresa, EstadoFinanciero $estadoFinanciero)
+    public function destroy(Empresa $empresa, $estadoFinancieroId)
     {
-        // Ensure the estadoFinanciero belongs to the given empresa
-        if ($estadoFinanciero->empresa_id !== $empresa->id) {
-            abort(404);
-        }
+        $estadoFinanciero = $empresa->estadosFinancieros()->findOrFail($estadoFinancieroId);
+
+        // The check if ($estadoFinanciero->empresa_id !== $empresa->id) is now redundant
+        // because findOrFail($estadoFinancieroId) is scoped to $empresa->estadosFinancieros()
+        // If the model is not found within the company's financial statements, a 404 will be thrown by findOrFail.
 
         $estadoFinanciero->delete();
 

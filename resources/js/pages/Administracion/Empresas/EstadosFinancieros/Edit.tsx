@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandInput, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CaretSortIcon } from '@radix-ui/react-icons'; // Corrected import for CaretSortIcon
 import InputError from '@/components/input-error';
 import { BreadcrumbItem } from '@/types';
 import { route } from 'ziggy-js';
@@ -27,8 +30,8 @@ interface CuentaBase {
 
 interface CatalogoCuenta {
     id: number;
-    nombre: string;
-    codigo: string;
+    nombre: string; // Reverted
+    codigo: string; // Reverted
     cuenta_base_id: number;
     cuenta_base_nombre: string;
 }
@@ -49,7 +52,7 @@ interface EstadoFinanciero {
 interface EditProps {
     empresa: Empresa;
     estadoFinanciero: EstadoFinanciero;
-    cuentasBaseRaiz: CuentaBase[];
+    // cuentasBaseRaiz: CuentaBase[]; // Removed as it's no longer passed
     catalogoCuentas: CatalogoCuenta[];
 }
 
@@ -62,7 +65,7 @@ const BREADCRUMBS = (empresa: Empresa, estadoFinanciero: EstadoFinanciero): Brea
     { title: 'Editar', href: route('empresas.estados-financieros.edit', { empresa: empresa.id, estados_financiero: estadoFinanciero.id }) },
 ];
 
-export default function EstadosFinancierosEdit({ empresa, estadoFinanciero, cuentasBaseRaiz, catalogoCuentas }: EditProps) {
+export default function EstadosFinancierosEdit({ empresa, estadoFinanciero, catalogoCuentas }: EditProps) {
     const { data, setData, put, processing, errors } = useForm({
         anio: String(estadoFinanciero.anio),
         tipo_estado: estadoFinanciero.tipo_estado,
@@ -134,27 +137,49 @@ export default function EstadosFinancierosEdit({ empresa, estadoFinanciero, cuen
                             <h3 className="text-lg font-semibold mt-6 mb-4">Detalles del Estado Financiero</h3>
                             <div className="space-y-4">
                                 {data.detalles.map((detalle, index) => (
-                                    <div key={index} className="flex items-end gap-2">
-                                        <div className="flex-1 space-y-2">
+                                    <div key={index} className="flex items-end gap-2 w-full"> {/* Added w-full to ensure it takes full width */}
+                                        <div className="flex-1 space-y-2 min-w-0"> {/* Added min-w-0 */}
                                             <Label htmlFor={`catalogo_cuenta_id-${index}`}>Cuenta</Label>
-                                            <Select
-                                                onValueChange={(value) => handleDetalleChange(index, 'catalogo_cuenta_id', value)}
-                                                value={detalle.catalogo_cuenta_id}
-                                            >
-                                                <SelectTrigger id={`catalogo_cuenta_id-${index}`}>
-                                                    <SelectValue placeholder="Seleccione una cuenta" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {catalogoCuentas.map((cuenta) => (
-                                                        <SelectItem key={cuenta.id} value={String(cuenta.id)}>
-                                                            {cuenta.codigo} - {cuenta.nombre} ({cuenta.cuenta_base_nombre})
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className="w-full justify-between overflow-hidden text-ellipsis whitespace-nowrap" // Added overflow-hidden, text-ellipsis, whitespace-nowrap
+                                                    >
+                                                        {detalle.catalogo_cuenta_id
+                                                            ? catalogoCuentas.find(
+                                                                  (cuenta) => String(cuenta.id) === detalle.catalogo_cuenta_id
+                                                              )?.codigo + ' - ' + catalogoCuentas.find(
+                                                                  (cuenta) => String(cuenta.id) === detalle.catalogo_cuenta_id
+                                                              )?.nombre
+                                                              : "Seleccione una cuenta..."}
+                                                        <CaretSortIcon className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0 max-h-[200px] overflow-y-auto">
+                                                    <Command>
+                                                        <CommandInput placeholder="Buscar cuenta..." className="h-9" />
+                                                        <CommandEmpty>No se encontraron cuentas.</CommandEmpty>
+                                                        <CommandGroup>
+                                                            {catalogoCuentas.map((cuenta) => (
+                                                                <CommandItem
+                                                                    value={`${cuenta.codigo} - ${cuenta.nombre}`} // Reverted to codigo and nombre
+                                                                    key={cuenta.id}
+                                                                    onSelect={() => {
+                                                                        handleDetalleChange(index, 'catalogo_cuenta_id', String(cuenta.id));
+                                                                    }}
+                                                                >
+                                                                    {cuenta.codigo} - {cuenta.nombre}
+                                                                </CommandItem>
+                                                            ))}
+                                                        </CommandGroup>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
                                             <InputError message={errors[`detalles.${index}.catalogo_cuenta_id`]} />
                                         </div>
-                                        <div className="flex-1 space-y-2">
+                                        <div className="flex-1 space-y-2 min-w-0"> {/* Added min-w-0 */}
                                             <Label htmlFor={`valor-${index}`}>Valor</Label>
                                             <Input
                                                 id={`valor-${index}`}
@@ -165,7 +190,7 @@ export default function EstadosFinancierosEdit({ empresa, estadoFinanciero, cuen
                                             />
                                             <InputError message={errors[`detalles.${index}.valor`]} />
                                         </div>
-                                        <Button type="button" variant="destructive" onClick={() => removeDetalle(index)}>
+                                        <Button type="button" variant="destructive" className="flex-shrink-0" onClick={() => removeDetalle(index)}>
                                             Eliminar
                                         </Button>
                                     </div>

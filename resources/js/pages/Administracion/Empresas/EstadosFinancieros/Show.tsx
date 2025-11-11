@@ -16,19 +16,25 @@ interface Empresa {
 }
 
 interface CuentaBase {
+    id: number;
     nombre: string;
-    naturaleza: string; // Added
+    codigo: string;
+    naturaleza: string;
+    parent_id: number | null;
 }
 
 interface CatalogoCuenta {
+    id: number;
+    codigo_cuenta: string;
     nombre_cuenta: string;
-    cuentaBase: CuentaBase;
+    cuenta_base: CuentaBase | null;
 }
 
 interface DetalleEstado {
     id: number;
     valor: number;
-    catalogo_cuenta: CatalogoCuenta;
+    catalogo_cuenta: CatalogoCuenta | null;
+    root_cuenta_base_name: string;
 }
 
 interface EstadoFinanciero {
@@ -93,17 +99,17 @@ export default function EstadosFinancierosShow({ estadoFinanciero, detallesAgrup
                                 </TableHeader>
                                 <TableBody>
                                     {detallesAgrupados[groupName].map(detalle => (
-                                        <TableRow key={detalle.id}>
-                                            <TableCell>
+                                        <TableRow key={detalle.id}><TableCell>
                                                 {detalle.catalogo_cuenta?.codigo_cuenta} - {detalle.catalogo_cuenta?.nombre_cuenta || 'Cuenta Desconocida'}
-                                            </TableCell>
-                                            <TableCell>{detalle.catalogo_cuenta?.cuentaBase?.naturaleza || 'N/A'}</TableCell> {/* New column cell */}
-                                            <TableCell className="text-right">
+                                            </TableCell><TableCell>
+                                                <Badge variant={detalle.catalogo_cuenta?.cuenta_base?.naturaleza === 'DEUDORA' ? 'blue' : 'green'}>
+                                                    {detalle.catalogo_cuenta?.cuenta_base?.naturaleza || 'N/A'}
+                                                </Badge>
+                                            </TableCell><TableCell className="text-right">
                                                 <Badge variant={detalle.valor >= 0 ? 'green' : 'red'}>
                                                     {formatCurrency(detalle.valor)}
                                                 </Badge>
-                                            </TableCell>
-                                        </TableRow>
+                                            </TableCell></TableRow>
                                     ))}
                                 </TableBody>
                                 <TableFooter>
