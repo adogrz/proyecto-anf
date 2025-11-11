@@ -37,7 +37,7 @@ const mainNavItems: NavItem[] = [
         icon: FolderTree,
     },
     {
-        title: 'Cuentas',
+        title: 'Cuentas Base',
         href: '/cuentas-base',
         icon: FileText,
     },

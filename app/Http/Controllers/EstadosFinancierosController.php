@@ -88,8 +88,10 @@ class EstadosFinancierosController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(EstadoFinanciero $estadoFinanciero)
+    public function show(Empresa $empresa, $estadoFinancieroId) // Changed parameter name to $estadoFinancieroId
     {
+        $estadoFinanciero = $empresa->estadosFinancieros()->findOrFail($estadoFinancieroId); // Manually find and scope
+
         $estadoFinanciero->load(['empresa', 'detalles.catalogoCuenta.cuentaBase']);
 
         // Agrupar detalles por tipo de cuenta base (Activo, Pasivo, etc.)
