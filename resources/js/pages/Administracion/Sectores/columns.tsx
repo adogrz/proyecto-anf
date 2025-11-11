@@ -60,7 +60,10 @@ export const columns: ColumnDef<Sector>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <Link href={route('sectores.show', sector.id)}><Eye className="mr-2 h-4 w-4" /> Ver Ratios</Link>
+              <Link href={route('sectores.show', sector.id)}><Eye className="mr-2 h-4 w-4" /> Ver Detalles</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={route('sectores.ratios.edit', sector.id)}><Eye className="mr-2 h-4 w-4" /> Ver Ratios</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={route('sectores.edit', sector.id)}><Pencil className="mr-2 h-4 w-4" /> Editar</Link>

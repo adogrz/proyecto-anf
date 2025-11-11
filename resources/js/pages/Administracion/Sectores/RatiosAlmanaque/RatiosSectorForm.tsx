@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { router } from "@inertiajs/react";
 import AppLayout from '@/layouts/app-layout';
-
+import { z } from "zod";
 const ratiosFijos = [
   { nombre_ratio: "Razon circulante", valor_referencia: "", fuente: "" },
   { nombre_ratio: "Prueba acida", valor_referencia: "", fuente: "" },
@@ -16,6 +16,26 @@ const ratiosFijos = [
   { nombre_ratio: "Rentabilidad neta del patrimonio (ROE)", valor_referencia: "", fuente: "" },
   { nombre_ratio: "Rentabilidad  del activo (ROA)", valor_referencia: "", fuente: "" },
 ]
+
+const RatioSchema = z.object({
+  valor_referencia: z.string()
+    .min(1, { message: "El valor de referencia es obligatorio." })
+    .transform(val => parseFloat(val)) // Convierte el string a número decimal
+    .refine(val => !isNaN(val) && val >= 0, { // Refina para asegurar que sea un número válido y no negativo
+      message: "Debe ser un número válido mayor o igual a cero.",
+    }),
+
+  // fuente es un string
+  fuente: z.string().max(255).nullable().optional(),
+});
+
+const RatiosArraySchema = z.array(RatioSchema);
+
+interface RatioError {
+  valor_referencia?: string;
+  fuente?: string;
+}
+type RatiosErrors = RatioError[];
 
 export default function RatiosForm({ sector, ratiosIniciales = [] }) {
 
@@ -40,8 +60,7 @@ export default function RatiosForm({ sector, ratiosIniciales = [] }) {
     });
   }
   const [ratios, setRatios] = useState(obtenerRatiosFijos);
-
-
+  const [validationErrors, setValidationErrors] = useState<RatiosErrors>([]);
 
   const actualizarCampo = (index, campo, valor) => {
     const nuevos = [...ratios];
@@ -50,9 +69,26 @@ export default function RatiosForm({ sector, ratiosIniciales = [] }) {
   };
 
   const guardar = () => {
-    console.log(ratios);
+    setValidationErrors([]);
+    const result = RatiosArraySchema.safeParse(ratios);
+    if (!result.success) {
+      const newErrors: RatiosErrors = ratios.map(() => ({}));
+      result.error.issues.forEach(issue => {
+        const index = issue.path[0] as number;
+        const field = issue.path[1] as keyof RatioError;
+
+        newErrors[index][field] = issue.message;
+      });
+      setValidationErrors(newErrors);
+      return;
+    }
     router.post(`/administracion/sectores/${sector.id}/ratios/guardar`, {
       ratios,
+    }, {
+      onSuccess: () => {
+        window.history.back();
+      }
+
     });
   };
 
@@ -86,14 +122,22 @@ export default function RatiosForm({ sector, ratiosIniciales = [] }) {
                       step="0.01"
                       placeholder="Ej. 45.3"
                       min="0.00"
+                      className={validationErrors[i]?.valor_referencia ? "border-red-500" : ""}
                     />
+                    {validationErrors[i]?.valor_referencia && (<p className="text-xs text-red-500 mt-1">
+                      {validationErrors[i].valor_referencia}
+                    </p>)}
                   </td>
                   <td className="p-2">
                     <Input
                       value={ratio.fuente}
                       onChange={(e) => actualizarCampo(i, "fuente", e.target.value)}
                       placeholder="Fuente o publicación"
+                      className={validationErrors[i]?.fuente ? "border-red-500" : ""}
                     />
+                    {validationErrors[i]?.fuente && (<p className="text-xs text-red-500 mt-1">
+                      {validationErrors[i].fuente}
+                    </p>)}
                   </td>
                 </tr>
               ))}

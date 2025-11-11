@@ -53,9 +53,8 @@ class EmpresasController extends Controller
         $empresa->load('plantillaCatalogo');
 
         // Redirigir con el objeto empresa recién creado
-        return redirect()->back()
-            ->with('success', 'Empresa creada con éxito.')
-            ->with('empresa', $empresa);
+        return redirect()->route('empresas.index')
+            ->with('success', 'Empresa creada con éxito.');
     }
 
     public function show(Empresa $empresa)
