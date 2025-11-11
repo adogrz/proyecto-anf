@@ -31,6 +31,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'cuentas-base.create',
             'cuentas-base.edit',
             'cuentas-base.delete',
+            'cuentas-base.import',
+            'cuentas-base.export',
             'plantillas-catalogo.index',
             'plantillas-catalogo.create',
             'plantillas-catalogo.edit',
@@ -62,11 +64,11 @@ class RolesAndPermissionsSeeder extends Seeder
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+            Permission::firstOrCreate(['name' => $permission]);
         }
 
         // Analista de Datos Role
-        $analistaRole = Role::create(['name' => 'Analista de Datos']);
+        $analistaRole = Role::firstOrCreate(['name' => 'Analista de Datos']);
         $analistaRole->givePermissionTo([
             'estados-financieros.index',
             'estados-financieros.create',
@@ -77,7 +79,7 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // Gerente Financiero Role
-        $gerenteRole = Role::create(['name' => 'Gerente Financiero']);
+        $gerenteRole = Role::firstOrCreate(['name' => 'Gerente Financiero']);
         $gerenteRole->givePermissionTo($analistaRole->permissions);
         $gerenteRole->givePermissionTo([
             'estados-financieros.edit',
@@ -93,7 +95,7 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // Auditor Role
-        $auditorRole = Role::create(['name' => 'Auditor']);
+        $auditorRole = Role::firstOrCreate(['name' => 'Auditor']);
         $auditorRole->givePermissionTo([
             'estados-financieros.index',
             'informes.index',
@@ -103,7 +105,7 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // Administrador Role
-        $adminRole = Role::create(['name' => 'Administrador']);
+        $adminRole = Role::firstOrCreate(['name' => 'Administrador']);
         $adminRole->givePermissionTo(Permission::all());
     }
 }

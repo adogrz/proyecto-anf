@@ -9,6 +9,7 @@ use App\Http\Controllers\EstadosFinancierosController;
 use App\Http\Controllers\SectoresController;
 use App\Http\Controllers\Administracion\PlantillaCatalogoController;
 use App\Http\Controllers\ImportacionController;
+use App\Http\Controllers\Administracion\ImportacionCuentasBaseController;
 use App\Http\Controllers\ProyeccionVentasController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -28,11 +29,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     });
 
     Route::middleware('can:cuentas-base.index')->group(function () {
+        Route::get('cuentas-base/export', [CuentasBaseController::class, 'export'])->name('cuentas-base.export')->middleware('can:cuentas-base.export');
+        Route::get('cuentas-base/download-template', [CuentasBaseController::class, 'downloadTemplate'])->name('cuentas-base.download-template');
         Route::resource('cuentas-base', CuentasBaseController::class);
     });
 
     Route::middleware('can:plantillas-catalogo.index')->group(function () {
         Route::resource('plantillas-catalogo', PlantillaCatalogoController::class);
+    });
+
+    Route::prefix('administracion')->name('admin.')->middleware(['auth', 'can:cuentas-base.import'])->group(function () {
+        Route::get('/importacion-base', [\App\Http\Controllers\Administracion\ImportacionBaseController::class, 'index'])->name('importacion-base.index');
+        Route::post('/importacion-base/preview', [\App\Http\Controllers\Administracion\ImportacionBaseController::class, 'preview'])->name('importacion-base.preview');
+        Route::post('/importacion-base/import', [\App\Http\Controllers\Administracion\ImportacionBaseController::class, 'import'])->name('importacion-base.import');
+        
+        Route::post('/importacion-cuentas-base/preview', [ImportacionCuentasBaseController::class, 'preview'])->name('importacion-cuentas-base.preview');
+        Route::post('/importacion-cuentas-base', [ImportacionCuentasBaseController::class, 'store'])->name('importacion-cuentas-base.store');
     });
 
     // Gestión de Empresas y sus datos (Para 'Gerente Financiero' y 'Administrador')
@@ -74,8 +86,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/importacion/wizard', [ImportacionController::class, 'wizard'])->name('importacion.wizard');
         Route::post('/importacion/automap', [ImportacionController::class, 'automap'])->name('importacion.automap');
         Route::post('/importacion/guardar-mapeo', [ImportacionController::class, 'guardarMapeo'])->name('importacion.guardarMapeo');
-        Route::post('/importacion/previsualizar', [ImportacionController::class, 'previsualizar'])->name('importacion.previsualizar');
+        Route::post('/importacion/previsualizar-estado-financiero', [ImportacionController::class, 'previsualizarEstadoFinanciero'])->name('importacion.previsualizarEstadoFinanciero');
         Route::post('/importacion/guardar-estado-financiero', [ImportacionController::class, 'guardarEstadoFinanciero'])->name('importacion.guardarEstadoFinanciero');
+        Route::post('/importacion/previsualizar-catalogo-base', [ImportacionController::class, 'previsualizarCatalogoBase'])->name('importacion.previsualizarCatalogoBase');
+        Route::post('/importacion/importar-catalogo-base', [ImportacionController::class, 'importarCatalogoBase'])->name('importacion.importarCatalogoBase');
+        Route::post('/importacion/crear-empresa', [ImportacionController::class, 'crearEmpresa'])
+            ->name('importacion.crear-empresa')
+            ->middleware(['auth']);
+    });
+});
+
+Route::middleware(['auth'])->group(function () {
+    // Rutas de importación
+    Route::prefix('importacion')->group(function () {
+        Route::get('plantilla/{tipo?}', [ImportacionController::class, 'descargarPlantilla'])
+            ->name('importacion.descargarPlantilla');
+        Route::get('documentacion', [ImportacionController::class, 'documentacion'])
+            ->name('importacion.documentacion');
     });
 });
 

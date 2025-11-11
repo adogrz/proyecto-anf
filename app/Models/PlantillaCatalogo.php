@@ -14,8 +14,26 @@ class PlantillaCatalogo extends Model
 
     protected $fillable = ['nombre', 'descripcion'];
 
-    public function cuentasBase(): HasMany
-    {
-        return $this->hasMany(CuentaBase::class);
+    
+
+        public function cuentasBase(): HasMany
+
+        {
+
+            return $this->hasMany(CuentaBase::class);
+
+        }
+
+    
+
+        public function empresas(): HasMany
+
+        {
+
+            return $this->hasMany(Empresa::class);
+
+        }
+
     }
-}
+
+    
