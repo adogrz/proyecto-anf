@@ -10,6 +10,7 @@ use App\Http\Controllers\SectoresController;
 use App\Http\Controllers\Administracion\PlantillaCatalogoController;
 use App\Http\Controllers\ImportacionController;
 use App\Http\Controllers\ProyeccionVentasController;
+use App\Http\Controllers\CalculoRatiosController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -76,7 +77,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/importacion/guardar-mapeo', [ImportacionController::class, 'guardarMapeo'])->name('importacion.guardarMapeo');
         Route::post('/importacion/previsualizar', [ImportacionController::class, 'previsualizar'])->name('importacion.previsualizar');
         Route::post('/importacion/guardar-estado-financiero', [ImportacionController::class, 'guardarEstadoFinanciero'])->name('importacion.guardarEstadoFinanciero');
+
     });
+
+   //Calculo de los 10 ratios financieros principales
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('empresas/{empresa}/ratios/{anio}/calcular', [CalculoRatiosController::class, 'calcular'])
+        ->name('ratios.calcular')
+        ->middleware('can:ratios.create');
+});
+ 
+Route::get('empresas/{empresa}/ratios/calcular-todos', [CalculoRatiosController::class, 'calcularTodos'])
+    ->name('ratios.calcular.todos')
+    ->middleware('can:ratios.create');
+
+
 });
 
 require __DIR__.'/settings.php';
