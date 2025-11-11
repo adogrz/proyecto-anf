@@ -83,18 +83,38 @@ class ImportacionCuentasBaseController extends Controller
         ]);
 
         $file = $request->file('file');
-        $result = $this->catalogoService->procesarAutomap(
-            $file->getRealPath(),
-            $request->input('plantilla_catalogo_id')
-        );
+        $filePath = $file->getRealPath();
+        $extension = $file->getClientOriginalExtension();
 
-        return response()->json([
-            'headers' => ['codigo_cuenta', 'nombre_cuenta', 'cuenta_base_nombre'],
-            'preview' => array_slice($result['datos'], 0, 10),
-            'total_rows' => count($result['datos']),
-            'stats' => $result['stats'] ?? null,
-            'parsing_errors' => $result['errores']
-        ]);
+        try {
+            $parsed = $this->parseFile($filePath, $extension);
+            $data = $parsed['data'];
+            $parsingErrors = $parsed['errors'];
+
+            // Prepare data for preview, showing only relevant columns
+            $previewData = array_map(function($row) {
+                return [
+                    'codigo' => $row['codigo'],
+                    'nombre' => $row['nombre'],
+                    'tipo_cuenta' => $row['tipo_cuenta'],
+                    'naturaleza' => $row['naturaleza'],
+                    'parent_codigo' => $row['parent_codigo'],
+                ];
+            }, array_slice($data, 0, 10)); // Show first 10 rows as preview
+
+            return response()->json([
+                'headers' => ['Código', 'Nombre', 'Tipo de Cuenta', 'Naturaleza', 'Código Padre'],
+                'preview' => $previewData,
+                'total_rows' => count($data),
+                'parsing_errors' => $parsingErrors,
+            ]);
+        } catch (ReaderException $e) {
+            Log::error('Error al leer el archivo de hoja de cálculo: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al leer el archivo Excel. Asegúrate de que sea un archivo válido.'], 422);
+        } catch (Exception $e) {
+            Log::error('Error al procesar el archivo: ' . $e->getMessage());
+            return response()->json(['error' => 'Error al procesar el archivo. ' . $e->getMessage()], 422);
+        }
     }
 
     public function store(Request $request)
@@ -168,14 +188,14 @@ class ImportacionCuentasBaseController extends Controller
             }
 
             DB::commit();
-            return redirect()->route('cuentas-base.index', ['plantilla' => $plantillaId])
+            return redirect()->route('plantillas-catalogo.cuentas-base.index', ['plantilla_catalogo' => $plantillaId])
                              ->with('success', 'Cuentas base importadas con éxito.');
 
         } catch (Exception $e) {
             DB::rollBack();
             Log::error('Error en la importación de cuentas base: ' . $e->getMessage());
-            // Keep the errors array and redirect back with it
-            return redirect()->back()->withErrors($errors)->withInput();
+            $errorMessage = !empty($errors) ? implode("\n", $errors) : 'Error desconocido durante la importación.';
+            return redirect()->back()->withErrors(['import' => $errorMessage])->withInput();
         }
     }
 }

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { MoreHorizontal } from "lucide-react"
 import { Link } from "@inertiajs/react"
 import { Badge } from "@/components/ui/badge"
+import { Empresa } from "@/types"
 
 export interface CuentaBase {
     id: number;
@@ -31,7 +32,12 @@ export interface CuentaBase {
     };
 }
 
-export const columns: ColumnDef<CuentaBase>[] = [
+interface ColumnsProps {
+    empresa: Empresa;
+    handleDeleteClick: (cuentaBase: CuentaBase) => void;
+}
+
+export const columns = ({ empresa, handleDeleteClick }: ColumnsProps): ColumnDef<CuentaBase>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -95,16 +101,6 @@ export const columns: ColumnDef<CuentaBase>[] = [
     },
   },
   {
-    accessorKey: "plantilla_catalogo.nombre",
-    header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Plantilla" />
-    ),
-    cell: ({ row }) => {
-        const cuentaBase = row.original;
-        return cuentaBase.plantilla_catalogo?.nombre || 'N/A';
-    }
-  },
-  {
     accessorKey: "parent.nombre",
     header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Cuenta Padre" />
@@ -136,10 +132,13 @@ export const columns: ColumnDef<CuentaBase>[] = [
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-                <Link href={route('cuentas-base.edit', cuentaBase.id)}>Editar</Link>
+                <Link href={route('empresas.cuentas-base.edit', { empresa: empresa.id, cuentas_base: cuentaBase.id })}>Editar</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-                <Link href={route('cuentas-base.destroy', cuentaBase.id)} method="delete" as="button">Eliminar</Link>
+            <DropdownMenuItem
+                onClick={() => handleDeleteClick(cuentaBase)}
+                className="text-red-600"
+            >
+                Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

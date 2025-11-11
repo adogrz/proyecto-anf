@@ -299,20 +299,19 @@ class CatalogoService
                     ->update(['tipo_cuenta' => 'AGRUPACION']);
             }
 
-            // --- NEW LOGIC: Create CatalogoCuenta records for the Empresa ---
-            // First, delete any existing CatalogoCuenta for this empresa that are linked to this plantilla's CuentaBase
-            CatalogoCuenta::where('empresa_id', $empresaId)
-                          ->whereIn('cuenta_base_id', $allAccounts->pluck('id'))
-                          ->delete();
-
+            // --- NEW LOGIC: Upsert CatalogoCuenta records for the Empresa ---
             foreach ($allAccounts as $cuentaBase) {
-                CatalogoCuenta::create([
-                    'empresa_id' => $empresaId,
-                    'cuenta_base_id' => $cuentaBase->id,
-                    'codigo_cuenta' => $cuentaBase->codigo, // Use code from CuentaBase
-                    'nombre_cuenta' => $cuentaBase->nombre, // Use name from CuentaBase
-                ]);
-                Log::debug('CatalogoService: CatalogoCuenta creada automáticamente desde importarCuentasBase', [
+                CatalogoCuenta::updateOrCreate(
+                    [
+                        'empresa_id' => $empresaId,
+                        'codigo_cuenta' => $cuentaBase->codigo,
+                    ],
+                    [
+                        'cuenta_base_id' => $cuentaBase->id,
+                        'nombre_cuenta' => $cuentaBase->nombre,
+                    ]
+                );
+                Log::debug('CatalogoService: CatalogoCuenta upserted desde importarCuentasBase', [
                     'empresa_id' => $empresaId,
                     'cuenta_base_id' => $cuentaBase->id,
                     'codigo_cuenta' => $cuentaBase->codigo,

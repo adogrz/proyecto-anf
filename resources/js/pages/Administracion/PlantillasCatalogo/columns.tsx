@@ -59,12 +59,7 @@ export const columns: ColumnDef<Plantilla>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <Link href={route('cuentas-base.index', { plantilla: plantilla.id })}>
-                <FileCog className="mr-2 h-4 w-4" /> Administrar Cuentas
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href={route('plantillas-catalogo.show', { plantillas_catalogo: plantilla.id })}><Eye className="mr-2 h-4 w-4" /> Ver</Link>
+              <Link href={route('plantillas-catalogo.show', { plantilla_catalogo: plantilla.id })}><Eye className="mr-2 h-4 w-4" /> Ver</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={route('plantillas-catalogo.edit', plantilla.id)}><Pencil className="mr-2 h-4 w-4" /> Editar</Link>

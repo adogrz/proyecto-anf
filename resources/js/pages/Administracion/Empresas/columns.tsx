@@ -77,18 +77,12 @@ export const columns: ColumnDef<Empresa>[] = [
         ),
         cell: ({ row }) => row.original.sector.nombre,
     },
-    {
-        accessorKey: 'plantilla_catalogo.nombre',
-        header: ({ column }) => (
-            <DataTableColumnHeader column={column} title="Plantilla" />
-        ),
-        cell: ({ row }) =>
-            row.original.plantilla_catalogo?.nombre || 'No asignada',
-    },
+
     {
         id: 'actions',
         cell: ({ row }) => {
             const empresa = row.original;
+
 
             return (
                 <DropdownMenu>
@@ -135,9 +129,10 @@ export const columns: ColumnDef<Empresa>[] = [
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link
-                                href={route('empresas.catalogos.index', {
-                                    empresa: empresa.id,
-                                })}
+                                href={route(
+                                    'empresas.cuentas-base.index',
+                                    { empresa: empresa.id },
+                                )}
                             >
                                 <BookText className="mr-2 h-4 w-4" /> Catálogo
                                 de Cuentas

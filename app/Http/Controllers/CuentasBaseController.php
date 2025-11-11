@@ -2,77 +2,69 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CatalogoCuenta;
 use App\Models\CuentaBase;
+use App\Models\Empresa;
 use App\Models\PlantillaCatalogo;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class CuentasBaseController extends Controller
 {
-    public function index(Request $request)
+    public function index(Empresa $empresa)
     {
-        $plantillaId = $request->query('plantilla');
-        $selectedPlantilla = null;
-
-        $cuentasBaseQuery = CuentaBase::with('plantillaCatalogo', 'parent');
+        $plantillaCatalogo = $empresa->plantillaCatalogo;
+        $cuentasBase = $plantillaCatalogo ? $plantillaCatalogo->cuentasBase()->with('parent')->get() : collect();
 
         $breadcrumbs = [
-            ['title' => 'Administración', 'href' => '#'],
-            ['title' => 'Plantillas de Catálogo', 'href' => route('plantillas-catalogo.index')],
+            ['title' => 'Empresas', 'href' => route('empresas.index')],
+            ['title' => $empresa->nombre, 'href' => route('empresas.show', $empresa->id)],
+            ['title' => 'Cuentas Base', 'href' => route('empresas.cuentas-base.index', ['empresa' => $empresa->id])],
         ];
-
-        if ($plantillaId) {
-            $selectedPlantilla = PlantillaCatalogo::findOrFail($plantillaId);
-            $cuentasBaseQuery->where('plantilla_catalogo_id', $plantillaId);
-            $breadcrumbs[] = ['title' => $selectedPlantilla->nombre, 'href' => route('cuentas-base.index', ['plantilla' => $selectedPlantilla->id])];
-            $breadcrumbs[] = ['title' => 'Cuentas Base', 'href' => route('cuentas-base.index', ['plantilla' => $selectedPlantilla->id])];
-        } else {
-            $cuentasBaseQuery->whereRaw('1 = 0');
-            $breadcrumbs[] = ['title' => 'Cuentas Base', 'href' => route('cuentas-base.index')];
-        }
-
-        $cuentasBase = $cuentasBaseQuery->get();
 
         return Inertia::render('Administracion/CuentasBase/Index', [
             'cuentasBase' => $cuentasBase,
-            'selectedPlantilla' => $selectedPlantilla,
+            'plantilla' => $plantillaCatalogo,
+            'selectedPlantilla' => $plantillaCatalogo,
             'breadcrumbs' => $breadcrumbs,
+            'empresa' => $empresa,
         ]);
     }
 
-    public function create(Request $request)
+    public function create(Request $request, Empresa $empresa)
     {
-        $plantillaId = $request->query('plantilla');
-        $plantilla = $plantillaId ? PlantillaCatalogo::findOrFail($plantillaId) : null;
-
+        $plantillaCatalogo = $empresa->plantillaCatalogo;
+        if (!$plantillaCatalogo) {
+            return redirect()->route('empresas.show', $empresa->id)->with('error', 'La empresa no tiene una plantilla de catálogo asignada.');
+        }
         $breadcrumbs = [
-            ['title' => 'Administración', 'href' => '#'],
-            ['title' => 'Plantillas de Catálogo', 'href' => route('plantillas-catalogo.index')],
+            ['title' => 'Empresas', 'href' => route('empresas.index')],
+            ['title' => $empresa->nombre, 'href' => route('empresas.show', $empresa->id)],
+            ['title' => 'Cuentas Base', 'href' => route('empresas.cuentas-base.index', ['empresa' => $empresa->id])],
+            ['title' => 'Crear Cuenta Base', 'href' => route('empresas.cuentas-base.create', ['empresa' => $empresa->id])],
         ];
 
-        if ($plantilla) {
-            $breadcrumbs[] = ['title' => $plantilla->nombre, 'href' => route('cuentas-base.index', ['plantilla' => $plantilla->id])];
-            $breadcrumbs[] = ['title' => 'Cuentas Base', 'href' => route('cuentas-base.index', ['plantilla' => $plantilla->id])];
-        }
-        
-        $breadcrumbs[] = ['title' => 'Crear', 'href' => route('cuentas-base.create', ['plantilla' => $plantillaId])];
-
-        $plantillas = PlantillaCatalogo::all();
-        $cuentasBase = CuentaBase::all();
+        $cuentasBase = CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogo->id)->get();
         return Inertia::render('Administracion/CuentasBase/Create', [
-            'plantillas' => $plantillas,
+            'plantilla' => $plantillaCatalogo,
             'cuentasBase' => $cuentasBase,
-            'plantilla' => $request->query('plantilla'),
             'breadcrumbs' => $breadcrumbs,
+            'empresa' => $empresa,
         ]);
     }
 
-    public function store(Request $request)
+    public function store(Request $request, Empresa $empresa)
     {
+        $plantillaCatalogo = $empresa->plantillaCatalogo;
+        if (!$plantillaCatalogo) {
+            return back()->with('error', 'La empresa no tiene una plantilla de catálogo asignada.');
+        }
+
         $request->validate([
-            'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
             'codigo' => 'required|string|max:255',
             'nombre' => 'required|string|max:255',
             'tipo_cuenta' => ['required', 'string', Rule::in(['AGRUPACION', 'DETALLE'])],
@@ -80,58 +72,61 @@ class CuentasBaseController extends Controller
             'parent_id' => 'nullable|exists:cuentas_base,id',
         ]);
 
-        CuentaBase::create($request->all());
+        $data = $request->all();
+        $data['plantilla_catalogo_id'] = $plantillaCatalogo->id;
 
-        return redirect()->route('cuentas-base.index')
-                         ->with('success', 'Cuenta base creada con éxito.');
+        CuentaBase::create($data);
+
+        return redirect()->route('empresas.cuentas-base.index', ['empresa' => $empresa->id])
+            ->with('success', 'Cuenta base creada con éxito.');
     }
 
-    public function show(CuentaBase $cuentaBase)
+    public function show(Empresa $empresa, CuentaBase $cuentas_base)
     {
-        $plantillas = PlantillaCatalogo::all();
-        $allCuentasBase = CuentaBase::all();
-        $cuentaBase->load('plantillaCatalogo', 'parent', 'children');
-
-        return Inertia::render('Administracion/CuentasBase/Edit', [
-            'cuentaBase' => $cuentaBase,
-            'plantillas' => $plantillas,
-            'allCuentasBase' => $allCuentasBase,
-        ]);
-    }
-
-    public function edit(CuentaBase $cuentaBase)
-    {
-        $plantillas = PlantillaCatalogo::all();
-        $allCuentasBase = CuentaBase::all();
-        $cuentaBase->load('plantillaCatalogo', 'parent', 'children');
+        $cuentas_base->load('plantillaCatalogo', 'parent', 'children');
 
         $breadcrumbs = [
-            ['title' => 'Administración', 'href' => '#'],
-            ['title' => 'Plantillas de Catálogo', 'href' => route('plantillas-catalogo.index')],
+            ['title' => 'Empresas', 'href' => route('empresas.index')],
+            ['title' => $empresa->nombre, 'href' => route('empresas.show', $empresa->id)],
+            ['title' => 'Cuentas Base', 'href' => route('empresas.cuentas-base.index', ['empresa' => $empresa->id])],
+            ['title' => $cuentas_base->nombre, 'href' => route('empresas.cuentas-base.show', ['empresa' => $empresa->id, 'cuentas_base' => $cuentas_base->id])],
         ];
 
-        if ($cuentaBase->plantillaCatalogo) {
-            $breadcrumbs[] = ['title' => $cuentaBase->plantillaCatalogo->nombre, 'href' => route('cuentas-base.index', ['plantilla' => $cuentaBase->plantillaCatalogo->id])];
-            $breadcrumbs[] = ['title' => 'Cuentas Base', 'href' => route('cuentas-base.index', ['plantilla' => $cuentaBase->plantillaCatalogo->id])];
-        } else {
-            $breadcrumbs[] = ['title' => 'Cuentas Base', 'href' => route('cuentas-base.index')];
-        }
-        
-        $breadcrumbs[] = ['title' => $cuentaBase->nombre, 'href' => '#'];
-        $breadcrumbs[] = ['title' => 'Editar', 'href' => route('cuentas-base.edit', $cuentaBase->id)];
-
-        return Inertia::render('Administracion/CuentasBase/Edit', [
-            'cuentaBase' => $cuentaBase,
-            'plantillas' => $plantillas,
-            'allCuentasBase' => $allCuentasBase,
+        return Inertia::render('Administracion/CuentasBase/Show', [
+            'cuentaBase' => $cuentas_base,
+            'plantilla' => $empresa->plantillaCatalogo,
             'breadcrumbs' => $breadcrumbs,
+            'empresa' => $empresa,
         ]);
     }
 
-    public function update(Request $request, CuentaBase $cuentaBase)
+    public function edit(Empresa $empresa, CuentaBase $cuentas_base)
+    {
+        $cuentas_base->load('plantillaCatalogo', 'parent', 'children');
+        $plantillaCatalogo = $empresa->plantillaCatalogo;
+
+        $breadcrumbs = [
+            ['title' => 'Empresas', 'href' => route('empresas.index')],
+            ['title' => $empresa->nombre, 'href' => route('empresas.show', $empresa->id)],
+            ['title' => 'Cuentas Base', 'href' => route('empresas.cuentas-base.index', ['empresa' => $empresa->id])],
+            ['title' => $cuentas_base->nombre, 'href' => route('empresas.cuentas-base.show', ['empresa' => $empresa->id, 'cuentas_base' => $cuentas_base->id])],
+            ['title' => 'Editar', 'href' => route('empresas.cuentas-base.edit', ['empresa' => $empresa->id, 'cuentas_base' => $cuentas_base->id])],
+        ];
+
+        $allCuentasBase = CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogo->id)->get();
+
+        return Inertia::render('Administracion/CuentasBase/Edit', [
+            'cuentaBase' => $cuentas_base,
+            'plantilla' => $plantillaCatalogo,
+            'allCuentasBase' => $allCuentasBase,
+            'breadcrumbs' => $breadcrumbs,
+            'empresa' => $empresa,
+        ]);
+    }
+
+    public function update(Request $request, Empresa $empresa, CuentaBase $cuentas_base)
     {
         $request->validate([
-            'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
             'codigo' => 'required|string|max:255',
             'nombre' => 'required|string|max:255',
             'tipo_cuenta' => ['required', 'string', Rule::in(['AGRUPACION', 'DETALLE'])],
@@ -139,82 +134,60 @@ class CuentasBaseController extends Controller
             'parent_id' => 'nullable|exists:cuentas_base,id',
         ]);
 
-        $cuentaBase->update($request->all());
+        $data = $request->all();
+        $data['plantilla_catalogo_id'] = $empresa->plantilla_catalogo_id;
+        $cuentas_base->update($data);
 
-        return redirect()->route('cuentas-base.index')
-                         ->with('success', 'Cuenta base actualizada con éxito.');
+        return redirect()->route('empresas.cuentas-base.index', ['empresa' => $empresa->id])
+            ->with('success', 'Cuenta base actualizada con éxito.');
     }
 
-    public function destroy(CuentaBase $cuentaBase)
+    public function destroy(Empresa $empresa, CuentaBase $cuentas_base)
     {
-        $cuentaBase->delete();
+        $cuentas_base->delete();
 
-        return redirect()->route('cuentas-base.index')
-                         ->with('success', 'Cuenta base eliminada con éxito.');
+        return redirect()->route('empresas.cuentas-base.index', ['empresa' => $empresa->id])
+            ->with('success', 'Cuenta base eliminada con éxito.');
     }
 
-    public function export(Request $request)
+    public function export(Empresa $empresa)
     {
-        $plantillaId = $request->query('plantilla');
+        $plantillaCatalogo = $empresa->plantillaCatalogo;
+        if (!$plantillaCatalogo) {
+            return redirect()->route('empresas.show', $empresa->id)->with('error', 'La empresa no tiene una plantilla de catálogo asignada.');
+        }
+        $cuentas = CuentaBase::with('parent')->where('plantilla_catalogo_id', $plantillaCatalogo->id)->get();
 
-        if (!$plantillaId) {
-            return redirect()->route('cuentas-base.index')->with('error', 'Por favor, selecciona una plantilla para exportar.');
+        $fileName = 'cuentas_base_' . Str::slug($plantillaCatalogo->nombre) . '.xlsx';
+        $fileName = rtrim($fileName, '_'); // Remove any trailing underscores
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        // Set headers
+        $columns = ['codigo', 'nombre', 'tipo_cuenta', 'naturaleza', 'parent_codigo'];
+        $sheet->fromArray($columns, NULL, 'A1');
+
+        // Populate data
+        $rowIndex = 2;
+        foreach ($cuentas as $cuenta) {
+            $rowData = [
+                $cuenta->codigo,
+                $cuenta->nombre,
+                $cuenta->tipo_cuenta,
+                $cuenta->naturaleza,
+                $cuenta->parent ? $cuenta->parent->codigo : '',
+            ];
+            $sheet->fromArray($rowData, NULL, 'A' . $rowIndex++);
         }
 
-        $plantilla = PlantillaCatalogo::findOrFail($plantillaId);
-        $cuentas = CuentaBase::with('parent')->where('plantilla_catalogo_id', $plantillaId)->get();
-        
-        $fileName = 'cuentas_base_' . Str::slug($plantilla->nombre) . '.csv';
+        $writer = new Xlsx($spreadsheet);
 
-        $headers = [
-            "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
-        ];
+        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        header('Content-Disposition: attachment; filename="' . $fileName . '"');
+        header('Cache-Control: max-age=0');
 
-        $columns = ['codigo', 'nombre', 'tipo_cuenta', 'naturaleza', 'parent_codigo'];
-
-        $callback = function() use($cuentas, $columns) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
-
-            foreach ($cuentas as $cuenta) {
-                $row['codigo']  = $cuenta->codigo;
-                $row['nombre']    = $cuenta->nombre;
-                $row['tipo_cuenta']  = $cuenta->tipo_cuenta;
-                $row['naturaleza']  = $cuenta->naturaleza;
-                $row['parent_codigo']  = $cuenta->parent ? $cuenta->parent->codigo : '';
-
-                fputcsv($file, [$row['codigo'], $row['nombre'], $row['tipo_cuenta'], $row['naturaleza'], $row['parent_codigo']]);
-            }
-
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
-    }
-
-    public function downloadTemplate()
-    {
-        $fileName = 'plantilla_cuentas_base.csv';
-        $headers = [
-            "Content-type"        => "text/csv",
-            "Content-Disposition" => "attachment; filename=$fileName",
-            "Pragma"              => "no-cache",
-            "Cache-Control"       => "must-revalidate, post-check=0, pre-check=0",
-            "Expires"             => "0"
-        ];
-
-        $columns = ['codigo', 'nombre', 'tipo_cuenta', 'naturaleza', 'parent_codigo'];
-
-        $callback = function() use($columns) {
-            $file = fopen('php://output', 'w');
-            fputcsv($file, $columns);
-            fclose($file);
-        };
-
-        return response()->stream($callback, 200, $headers);
+        $writer->save('php://output');
+        exit;
     }
 }

@@ -14,22 +14,17 @@ import {
 } from '@/components/ui/select';
 import { CuentaBase } from './columns';
 import { FormEventHandler } from 'react';
-import { type BreadcrumbItem } from '@/types';
-
-interface PlantillaCatalogo {
-    id: number;
-    nombre: string;
-}
+import { type BreadcrumbItem, type Empresa, type PlantillaCatalogo } from '@/types';
 
 interface EditProps {
-    plantillas: PlantillaCatalogo[];
     allCuentasBase: CuentaBase[];
     cuentaBase: CuentaBase;
+    plantilla: PlantillaCatalogo;
     breadcrumbs?: BreadcrumbItem[];
+    empresa: Empresa;
 }
 
-export default function Edit({ plantillas, allCuentasBase, cuentaBase, breadcrumbs }: EditProps) {
-    // If cuentaBase is null or undefined, render an error or loading state
+export default function Edit({ allCuentasBase, cuentaBase, plantilla, breadcrumbs, empresa }: EditProps) {
     if (!cuentaBase) {
         return (
             <AppLayout breadcrumbs={breadcrumbs}>
@@ -49,17 +44,17 @@ export default function Edit({ plantillas, allCuentasBase, cuentaBase, breadcrum
     }
 
     const { data, setData, put, processing, errors } = useForm({
-        plantilla_catalogo_id: cuentaBase?.plantilla_catalogo_id ? String(cuentaBase.plantilla_catalogo_id) : '',
         codigo: cuentaBase.codigo,
         nombre: cuentaBase.nombre,
         tipo_cuenta: cuentaBase.tipo_cuenta,
         naturaleza: cuentaBase.naturaleza,
-        parent_id: cuentaBase.parent?.id ? String(cuentaBase.parent.id) : '',
+        parent_id: cuentaBase.parent_id ? String(cuentaBase.parent_id) : '',
     });
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        put(route('cuentas-base.update', cuentaBase.id));
+        console.log({ empresa, cuentaBase });
+        put(route('empresas.cuentas-base.update', { empresa: empresa.id, cuentas_base: cuentaBase.id }));
     };
 
     return (
@@ -68,30 +63,10 @@ export default function Edit({ plantillas, allCuentasBase, cuentaBase, breadcrum
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Editar Cuenta Base</CardTitle>
+                        <CardTitle>Editar Cuenta Base en {plantilla.nombre}</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={submit} className="space-y-6">
-                            <div>
-                                <Label htmlFor="plantilla_catalogo_id">Plantilla de Catálogo</Label>
-                                <Select
-                                    onValueChange={(value) => setData('plantilla_catalogo_id', value)}
-                                    value={data.plantilla_catalogo_id}
-                                >
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Selecciona una plantilla" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {plantillas.map(plantilla => (
-                                            <SelectItem key={plantilla.id} value={plantilla.id.toString()}>
-                                                {plantilla.nombre}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <InputError message={errors.plantilla_catalogo_id} className="mt-2" />
-                            </div>
-
                             <div>
                                 <Label htmlFor="codigo">Código</Label>
                                 <Input
@@ -162,7 +137,7 @@ export default function Edit({ plantillas, allCuentasBase, cuentaBase, breadcrum
                                     <SelectContent>
                                         <SelectItem value="_null">Ninguna (Cuenta Principal)</SelectItem>
                                         {allCuentasBase
-                                            .filter(cuenta => cuenta.plantilla_catalogo_id === parseInt(data.plantilla_catalogo_id) && cuenta.id !== cuentaBase.id)
+                                            .filter(cuenta => cuenta.id !== cuentaBase.id)
                                             .map(cuenta => (
                                                 <SelectItem key={cuenta.id} value={cuenta.id.toString()}>
                                                     {cuenta.nombre} ({cuenta.codigo})

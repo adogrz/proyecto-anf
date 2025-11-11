@@ -36,14 +36,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('sectores.ratios.guardar');
     });
 
-    Route::middleware('can:cuentas-base.index')->group(function () {
-        Route::get('cuentas-base/export', [CuentasBaseController::class, 'export'])->name('cuentas-base.export')->middleware('can:cuentas-base.export');
-        Route::get('cuentas-base/download-template', [CuentasBaseController::class, 'downloadTemplate'])->name('cuentas-base.download-template');
-        Route::resource('cuentas-base', CuentasBaseController::class);
-    });
-
     Route::middleware('can:plantillas-catalogo.index')->group(function () {
         Route::resource('plantillas-catalogo', PlantillaCatalogoController::class);
+    });
+
+    Route::prefix('empresas/{empresa}')->name('empresas.')->middleware('can:cuentas-base.index')->group(function () {
+        Route::get('cuentas-base/export', [CuentasBaseController::class, 'export'])->name('cuentas-base.export');
+        Route::get('cuentas-base', [CuentasBaseController::class, 'index'])->name('cuentas-base.index');
+        Route::get('cuentas-base/create', [CuentasBaseController::class, 'create'])->name('cuentas-base.create');
+        Route::post('cuentas-base', [CuentasBaseController::class, 'store'])->name('cuentas-base.store');
+        Route::get('cuentas-base/{cuentas_base}', [CuentasBaseController::class, 'show'])->name('cuentas-base.show');
+        Route::get('cuentas-base/{cuentas_base}/edit', [CuentasBaseController::class, 'edit'])->name('cuentas-base.edit');
+        Route::put('cuentas-base/{cuentas_base}', [CuentasBaseController::class, 'update'])->name('cuentas-base.update');
+        Route::delete('cuentas-base/{cuentas_base}', [CuentasBaseController::class, 'destroy'])->name('cuentas-base.destroy');
     });
 
     Route::prefix('administracion')->name('admin.')->middleware(['auth', 'can:cuentas-base.import'])->group(function () {
@@ -61,6 +66,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class);
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
+
+    Route::resource('empresas.estados-financieros', EstadosFinancierosController::class);
 
     // Análisis de Ratios por Empresa
     Route::prefix('empresas/{empresa}')->name('empresas.')->middleware('can:ratios-financieros.index')->group(function () {

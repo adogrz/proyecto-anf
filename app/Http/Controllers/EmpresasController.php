@@ -126,4 +126,16 @@ class EmpresasController extends Controller
             'has_catalog' => $hasCatalogoCuentas,
         ]);
     }
+
+    public function checkByIdCatalogStatus($empresaId)
+    {
+        $empresa = Empresa::findOrFail($empresaId);
+
+        // Check if the company has any CatalogoCuenta records
+        $hasCatalogoCuentas = $empresa->catalogoCuentas()->exists();
+
+        return response()->json([
+            'has_catalog' => $hasCatalogoCuentas,
+        ]);
+    }
 }

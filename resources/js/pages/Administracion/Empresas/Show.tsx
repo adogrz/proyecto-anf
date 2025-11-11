@@ -40,14 +40,23 @@ interface Empresa {
     estadosFinancieros?: EstadoFinanciero[];
 }
 
-interface ShowProps {
-    empresa: Empresa;
+interface Stats {
+    catalogo_cuentas_count: number;
+    estados_financieros_count: number;
+    datos_venta_historicos_count: number;
+    ratios_calculados_count: number;
 }
 
-export default function EmpresasShow({ empresa }: ShowProps) {
+interface ShowProps {
+    empresa: Empresa;
+    stats: Stats;
+}
+
+export default function EmpresasShow({ empresa, stats }: ShowProps) {
     const BREADCRUMBS: BreadcrumbItem[] = [
-        { title: 'Empresas', href: '/empresas' },
-        { title: empresa.nombre, href: '' },
+        { title: 'Home', href: route('dashboard') },
+        { title: 'Empresas', href: route('empresas.index') },
+        { title: empresa.nombre, href: route('empresas.show', empresa.id) },
     ];
 
     return (
@@ -133,20 +142,36 @@ export default function EmpresasShow({ empresa }: ShowProps) {
                             <CardTitle>Estadísticas</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex justify-between">
-                                <span className="text-sm font-medium text-gray-600">
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
                                     Cuentas en catálogo:
                                 </span>
-                                <Badge variant="secondary">
-                                    {empresa.catalogoCuentas?.length || 0}
+                                <Badge variant="blue" className="text-base font-bold px-3 py-1">
+                                    {stats.catalogo_cuentas_count}
                                 </Badge>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-sm font-medium text-gray-600">
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
                                     Estados financieros:
                                 </span>
-                                <Badge variant="secondary">
-                                    {empresa.estadosFinancieros?.length || 0}
+                                <Badge variant="green" className="text-base font-bold px-3 py-1">
+                                    {stats.estados_financieros_count}
+                                </Badge>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
+                                    Datos de venta históricos:
+                                </span>
+                                <Badge variant="yellow" className="text-base font-bold px-3 py-1">
+                                    {stats.datos_venta_historicos_count}
+                                </Badge>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
+                                    Ratios calculados:
+                                </span>
+                                <Badge variant="red" className="text-base font-bold px-3 py-1">
+                                    {stats.ratios_calculados_count}
                                 </Badge>
                             </div>
                         </CardContent>
