@@ -12,15 +12,15 @@ import {
 import { Link } from '@inertiajs/react';
 import { ColumnDef } from '@tanstack/react-table';
 import {
+    BarChart3,
     BookText,
     Eye,
     FileText,
+    LineChart,
     MoreHorizontal,
     Pencil,
     Trash2,
     TrendingUp,
-    LineChart,
-    BarChart3,
 } from 'lucide-react';
 import { route } from 'ziggy-js';
 
@@ -124,6 +124,17 @@ export const columns: ColumnDef<Empresa>[] = [
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link
+                                href={route(
+                                    'empresas.analisis.ratios.dashboard',
+                                    empresa.id,
+                                )}
+                            >
+                                <BarChart3 className="mr-2 h-4 w-4" /> Análisis
+                                de Ratios
+                            </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link
                                 href={route('empresas.catalogos.index', {
                                     empresa: empresa.id,
                                 })}
@@ -144,12 +155,24 @@ export const columns: ColumnDef<Empresa>[] = [
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                            <Link href={route('analisis.index', { empresa: empresa.id })}>
-                              <BarChart3 className="mr-2 h-4 w-4" /> Análisis Comparativo</Link>
+                            <Link
+                                href={route('analisis.index', {
+                                    empresa: empresa.id,
+                                })}
+                            >
+                                <BarChart3 className="mr-2 h-4 w-4" /> Análisis
+                                Comparativo
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                            <Link href={route('analisis.grafico-variaciones', { empresa: empresa.id })}>
-                              <LineChart className="mr-2 h-4 w-4" /> Gráfico de Variaciones</Link>
+                            <Link
+                                href={route('analisis.grafico-variaciones', {
+                                    empresa: empresa.id,
+                                })}
+                            >
+                                <LineChart className="mr-2 h-4 w-4" /> Gráfico
+                                de Variaciones
+                            </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-red-600" asChild>

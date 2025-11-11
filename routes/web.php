@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AnalisisController;
+use App\Http\Controllers\AnalisisRatiosController;
 use App\Http\Controllers\CatalogosCuentasController;
 use App\Http\Controllers\CuentasBaseController;
 use App\Http\Controllers\DatoVentaHistoricoController;
@@ -48,7 +49,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/importacion-base', [\App\Http\Controllers\Administracion\ImportacionBaseController::class, 'index'])->name('importacion-base.index');
         Route::post('/importacion-base/preview', [\App\Http\Controllers\Administracion\ImportacionBaseController::class, 'preview'])->name('importacion-base.preview');
         Route::post('/importacion-base/import', [\App\Http\Controllers\Administracion\ImportacionBaseController::class, 'import'])->name('importacion-base.import');
-        
+
         Route::post('/importacion-cuentas-base/preview', [ImportacionCuentasBaseController::class, 'preview'])->name('importacion-cuentas-base.preview');
         Route::post('/importacion-cuentas-base', [ImportacionCuentasBaseController::class, 'store'])->name('importacion-cuentas-base.store');
     });
@@ -57,9 +58,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('empresas', EmpresasController::class)->middleware('can:empresas.index');
     Route::get('empresas/{empresa}/check-catalog-status', [EmpresasController::class, 'checkCatalogStatus'])->name('empresas.checkCatalogStatus');
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
-    Route::resource('empresas.estados-financieros', EstadosFinancierosController::class);
-    
-    
+    Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
+
+    // Análisis de Ratios por Empresa
+    Route::prefix('empresas/{empresa}')->name('empresas.')->middleware('can:ratios-financieros.index')->group(function () {
+        Route::prefix('analisis/ratios')->name('analisis.ratios.')->group(function () {
+            Route::get('/', [AnalisisRatiosController::class, 'dashboard'])
+                ->name('dashboard');
+
+            Route::get('benchmark/{anio}', [AnalisisRatiosController::class, 'compararConBenchmark'])
+                ->name('benchmark');
+
+            Route::get('promedio-sector/{anio}', [AnalisisRatiosController::class, 'compararConPromedioSector'])
+                ->name('promedio-sector');
+
+            Route::get('evolucion', [AnalisisRatiosController::class, 'evolucionRatios'])
+                ->name('evolucion');
+        });
+    });
+
 
     // Análisis (Accesible para todos los roles con permisos de lectura)
     Route::prefix('analisis')->name('analisis.')->middleware('can:informes.index')->group(function () {
