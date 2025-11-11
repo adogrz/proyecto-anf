@@ -6,12 +6,13 @@ use App\Models\Empresa;
 use App\Models\EstadoFinanciero;
 use App\Models\RatioCalculado;
 use App\Models\CatalogoCuenta;
+use App\Traits\TieneRatiosFinancieros;
 use Illuminate\Database\Console\DumpCommand;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class CalculoRatiosService
-{
+{   use TieneRatiosFinancieros;
     /**
      * Calcula ratios financieros para TODAS las empresas y años disponibles
      */
@@ -113,16 +114,16 @@ class CalculoRatiosService
 
         // Cálculo de ratios
         $ratios = [
-            'Razón Circulante' => $this->div($activoCorriente, $pasivoCorriente),
-            'Prueba Ácida' => $this->div(($activoCorriente - $inventario), $pasivoCorriente),
-            'Razón de Capital de Trabajo' => $this->div(($activoCorriente - $pasivoCorriente), $activoTotal),
-            'Rotación de Inventario' => $this->div($costoVentas, $inventario),
-            'Días de Inventario' => $this->div(365, $this->div($costoVentas, $inventario)),
-            'Rotación de Activos Totales' => $this->div($ventasNetas, $activoTotal),
-            'Grado de Endeudamiento' => $this->div($pasivoTotal, $activoTotal),
-            'Endeudamiento Patrimonial' => $this->div($pasivoTotal, $patrimonio),
-            'Rentabilidad del Activo (ROA)' => $this->div($utilidadNeta, $activoTotal),
-            'Rentabilidad del Patrimonio (ROE)' => $this->div($utilidadNeta, $patrimonio),
+            self::RAZON_CIRCULANTE => $this->div($activoCorriente, $pasivoCorriente),
+            self::PRUEBA_ACIDA     => $this->div(($activoCorriente - $inventario), $pasivoCorriente),
+            self::CAPITAL_TRABAJO  => $this->div(($activoCorriente - $pasivoCorriente), $activoTotal),
+            self::ROTACION_INVENTARIO => $this->div($costoVentas, $inventario),
+            self::DIAS_INVENTARIO  => $this->div(365, $this->div($costoVentas, $inventario)),
+            self::ROTACION_ACTIVOS => $this->div($ventasNetas, $activoTotal),
+            self::GRADO_ENDEUDAMIENTO => $this->div($pasivoTotal, $activoTotal),
+            self::ENDEUDAMIENTO_PATRIMONIAL => $this->div($pasivoTotal, $patrimonio),
+            self::ROA              => $this->div($utilidadNeta, $activoTotal),
+            self::ROE              => $this->div($utilidadNeta, $patrimonio),
         ];
 
         dump($ratios);

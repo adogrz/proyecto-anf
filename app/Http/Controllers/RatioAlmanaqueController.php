@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Traits\TieneRatiosFinancieros;
 use Illuminate\Http\Request;
 use App\Models\Sector;
 use App\Models\RatioSector;
@@ -9,7 +10,7 @@ use Inertia\Inertia;
 use Illuminate\Support\Facades\DB; // Añadido para transacciones
 
 class RatioAlmanaqueController extends Controller
-{
+{   use TieneRatiosFinancieros;
     /**
      * Muestra el formulario para editar los ratios de un sector específico.
      * Usamos Model Binding para cargar el Sector por ID.
@@ -19,12 +20,14 @@ class RatioAlmanaqueController extends Controller
         // El sector ya está cargado.
         // Ahora cargamos los ratios relacionados usando el ID del sector.
         $ratios = RatioSector::where('sector_id', $sector->id)->get();
+        $nombresFijos = self::$nombresRatios;
 
         // Se renderiza el componente de React para la edición.
         return Inertia::render('Administracion/Sectores/RatiosAlmanaque/RatiosSectorForm', [
             // Renombramos la prop 'ratios' a 'ratiosIniciales' para que coincida con el componente de React.
             'sector' => $sector,
-            'ratiosIniciales' => $ratios, 
+            'ratiosIniciales' => $ratios,
+            'nombresFijos' => $nombresFijos, 
         ]);
     }
 
