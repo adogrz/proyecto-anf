@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CatalogoCuenta extends Model
 {
@@ -21,6 +22,11 @@ class CatalogoCuenta extends Model
 
     public function cuentaBase(): BelongsTo
     {
-        return $this->belongsTo(CuentaBase::class);
+        return $this->belongsTo(CuentaBase::class, 'cuenta_base_id');
+    }
+
+    public function detallesEstados(): HasMany
+    {
+        return $this->hasMany(DetalleEstado::class, 'catalogo_cuenta_id');
     }
 }

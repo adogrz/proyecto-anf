@@ -16,11 +16,16 @@ class DetalleEstado extends Model
 
     public function estadoFinanciero(): BelongsTo
     {
-        return $this->belongsTo(EstadoFinanciero::class);
+        return $this->belongsTo(EstadoFinanciero::class, 'estado_financiero_id');
+    }
+
+    public function catalogoCuenta(): BelongsTo
+    {
+        return $this->belongsTo(CatalogoCuenta::class, 'catalogo_cuenta_id');
     }
 
     public function cuenta(): BelongsTo
     {
-        return $this->belongsTo(CatalogoCuenta::class, 'catalogo_cuenta_id');
+        return $this->catalogoCuenta();
     }
 }

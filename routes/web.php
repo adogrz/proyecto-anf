@@ -3,14 +3,14 @@
 use App\Http\Controllers\AnalisisController;
 use App\Http\Controllers\CatalogosCuentasController;
 use App\Http\Controllers\CuentasBaseController;
+use App\Http\Controllers\DatoVentaHistoricoController;
 use App\Http\Controllers\EmpresasController;
 use App\Http\Controllers\EstadosFinancierosController;
-use App\Http\Controllers\ProyeccionesVentasController;
-use App\Http\Controllers\RatiosController;
 use App\Http\Controllers\SectoresController;
 use App\Http\Controllers\Administracion\PlantillaCatalogoController;
 use App\Http\Controllers\ImportacionController;
 use App\Http\Controllers\Administracion\ImportacionCuentasBaseController;
+use App\Http\Controllers\ProyeccionVentasController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -26,7 +26,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Administración (Solo para rol 'Administrador')
     Route::middleware('can:sectores.index')->group(function () {
         Route::resource('sectores', SectoresController::class);
-        Route::resource('sectores.ratios', RatiosController::class)->shallow()->middleware('can:ratios.index');
     });
 
     Route::middleware('can:cuentas-base.index')->group(function () {
@@ -53,16 +52,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('empresas/{empresa}/check-catalog-status', [EmpresasController::class, 'checkCatalogStatus'])->name('empresas.checkCatalogStatus');
     Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
     Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
+    
+    
 
     // Análisis (Accesible para todos los roles con permisos de lectura)
-    Route::prefix('analisis/{empresa}')->name('analisis.')->middleware('can:informes.index')->group(function () {
+    Route::prefix('analisis')->name('analisis.')->middleware('can:informes.index')->group(function () {
         Route::get('ratios/{anio}', [AnalisisController::class, 'obtenerComparacionRatios'])->name('ratios');
-        Route::get('horizontal', [AnalisisController::class, 'obtenerAnalisisHorizontal'])->name('horizontal');
+        Route::get('{empresa}', [AnalisisController::class, 'obtenerAnalisis'])->name('index');
         Route::get('historial-cuenta', [AnalisisController::class, 'obtenerHistorialCuenta'])->name('historial-cuenta');
     });
 
     // Proyecciones (Para 'Gerente Financiero' y 'Administrador')
-    Route::resource('empresas.proyecciones', ProyeccionesVentasController::class)->shallow()->middleware('can:proyecciones.index');
+    Route::middleware('can:proyecciones.index')->group(function () {
+        Route::get('/proyecciones/{empresa}', [ProyeccionVentasController::class, 'dashboard'])->name('dashboard.proyecciones');
+        Route::get('/proyecciones/{empresa}/generar', [ProyeccionVentasController::class, 'generar'])->name('proyecciones.generar');
+
+        // Gestión de datos históricos (CRUD)
+        Route::get('/proyecciones/{empresa}/next-period', [DatoVentaHistoricoController::class, 'getNextPeriod'])->name('proyecciones.next-period');
+        Route::post('/proyecciones/{empresa}/datos-historicos', [DatoVentaHistoricoController::class, 'store'])->name('proyecciones.datos-historicos.store');
+        Route::put('/proyecciones/{empresa}/datos-historicos/{id}', [DatoVentaHistoricoController::class, 'update'])->name('proyecciones.datos-historicos.update');
+        Route::delete('/proyecciones/{empresa}/datos-historicos/{id}', [DatoVentaHistoricoController::class, 'destroy'])->name('proyecciones.datos-historicos.destroy');
+
+        // Importación CSV
+        Route::post('/proyecciones/{empresa}/importar-csv', [ProyeccionVentasController::class, 'importarCSV'])
+            ->name('proyecciones.importar-csv');
+
+        // Ruta para descargar la plantilla CSV (genérica)
+        Route::get('/proyecciones/plantilla/descargar', [ProyeccionVentasController::class, 'descargarPlantilla'])
+            ->name('proyecciones.plantilla.descargar');
+    });
 
     Route::middleware('can:estados-financieros.create')->group(function () {
         Route::get('/importacion/wizard', [ImportacionController::class, 'wizard'])->name('importacion.wizard');

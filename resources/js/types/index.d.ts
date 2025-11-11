@@ -1,6 +1,18 @@
 import { InertiaLinkProps } from '@inertiajs/react';
 import { LucideIcon } from 'lucide-react';
 
+// Declaración global de Ziggy route
+declare global {
+    function route(name?: undefined): {
+        current: (name?: string) => string | boolean;
+    };
+    function route<T extends string | number>(
+        name: string,
+        params?: T | Record<string, T | T[]>,
+        absolute?: boolean
+    ): string;
+}
+
 export interface Auth {
     user: User;
     roles: string[];
@@ -31,6 +43,12 @@ export interface SharedData {
     quote: { message: string; author: string };
     auth: Auth;
     sidebarOpen: boolean;
+    flash?: {
+        success?: string;
+        error?: string;
+        warning?: string;
+        info?: string;
+    };
     [key: string]: unknown;
 }
 
