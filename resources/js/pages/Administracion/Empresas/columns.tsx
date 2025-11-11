@@ -19,6 +19,8 @@ import {
     Pencil,
     Trash2,
     TrendingUp,
+    LineChart,
+    BarChart3,
 } from 'lucide-react';
 import { route } from 'ziggy-js';
 
@@ -143,8 +145,12 @@ export const columns: ColumnDef<Empresa>[] = [
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
                             <Link href={route('analisis.index', { empresa: empresa.id })}>
-                              <FileText className="mr-2 h-4 w-4" /> Análisis Comparativo</Link>
-                        </DropdownMenuItem>   
+                              <BarChart3 className="mr-2 h-4 w-4" /> Análisis Comparativo</Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={route('analisis.grafico-variaciones', { empresa: empresa.id })}>
+                              <LineChart className="mr-2 h-4 w-4" /> Gráfico de Variaciones</Link>
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem className="text-red-600" asChild>
                             <Link

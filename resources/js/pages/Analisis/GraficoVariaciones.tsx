@@ -27,6 +27,7 @@ interface Props {
         nombre: string;
     };
     cuentas: Cuenta[];
+    aniosDisponibles: number[];
     datos?: {
         cuenta: Cuenta;
         periodo: {
@@ -37,14 +38,16 @@ interface Props {
     };
 }
 
-export default function GraficoVariaciones({ empresa, cuentas, datos }: Props) {
-    const [cuentaSeleccionada, setCuentaSeleccionada] = useState<string>('');
-    const [anioInicio, setAnioInicio] = useState<string>('');
-    const [anioFin, setAnioFin] = useState<string>('');
-
-    // Generar rango de años disponibles (últimos 10 años desde hoy)
-    const anioActual = new Date().getFullYear();
-    const aniosDisponibles = Array.from({ length: 10 }, (_, i) => anioActual - i);
+export default function GraficoVariaciones({ empresa, cuentas, aniosDisponibles, datos }: Props) {
+    const [cuentaSeleccionada, setCuentaSeleccionada] = useState<string>(
+        datos?.cuenta.id.toString() || ''
+    );
+    const [anioInicio, setAnioInicio] = useState<string>(
+        datos?.periodo.inicio.toString() || ''
+    );
+    const [anioFin, setAnioFin] = useState<string>(
+        datos?.periodo.fin.toString() || ''
+    );
 
     const breadcrumbs = [
         { title: 'Análisis', href: `/analisis/${empresa.id}` },
@@ -95,10 +98,10 @@ export default function GraficoVariaciones({ empresa, cuentas, datos }: Props) {
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     {/* Título */}
                     <div className="mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900">
+                        <h2 className="text-2xl font-bold text-white">
                             Gráfico de Variaciones
                         </h2>
-                        <p className="text-gray-600 mt-1">{empresa.nombre}</p>
+                        <p className="text-gray-300 mt-1">{empresa.nombre}</p>
                     </div>
 
                     {/* Card de selección */}

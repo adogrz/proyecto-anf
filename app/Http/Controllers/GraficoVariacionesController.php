@@ -15,10 +15,17 @@ class GraficoVariacionesController extends Controller
     {
         // Obtener todas las cuentas de la empresa para el selector
         $cuentas = CatalogoCuenta::where('empresa_id', $empresa->id)
-            ->where('tipo', '!=', 'HEADER')
-            ->orderBy('codigo')
-            ->select('id', 'codigo', 'nombre')
+            ->orderBy('codigo_cuenta')
+            ->select('id', 'codigo_cuenta as codigo', 'nombre_cuenta as nombre')
             ->get();
+
+        // Obtener los años disponibles de los estados financieros de la empresa
+        $aniosDisponibles = EstadoFinanciero::where('empresa_id', $empresa->id)
+            ->orderBy('anio', 'desc')
+            ->pluck('anio')
+            ->unique()
+            ->values()
+            ->toArray();
 
         $datos = null;
 
@@ -35,32 +42,39 @@ class GraficoVariacionesController extends Controller
 
             $cuenta = CatalogoCuenta::findOrFail($cuentaId);
 
-            // Obtener los estados financieros en el rango de años
+            // Obtener los estados financieros en el rango de años (agrupados por año)
             $estadosFinancieros = EstadoFinanciero::where('empresa_id', $empresa->id)
                 ->whereBetween('anio', [$anioInicio, $anioFin])
                 ->orderBy('anio')
-                ->get();
+                ->get()
+                ->groupBy('anio'); // Agrupar por año para evitar duplicados
 
             // Obtener los valores de la cuenta para cada año
             $valores = [];
             $anioAnterior = null;
             $valorAnterior = null;
 
-            foreach ($estadosFinancieros as $estado) {
-                $detalle = DetalleEstado::where('estado_financiero_id', $estado->id)
-                    ->where('catalogo_cuenta_id', $cuenta->id)
-                    ->first();
-
-                $valorActual = $detalle ? $detalle->valor : 0;
+            foreach ($estadosFinancieros as $anio => $estados) {
+                // Sumar los valores de todos los estados financieros de ese año para esta cuenta
+                $valorTotal = 0;
+                foreach ($estados as $estado) {
+                    $detalle = DetalleEstado::where('estado_financiero_id', $estado->id)
+                        ->where('catalogo_cuenta_id', $cuenta->id)
+                        ->first();
+                    
+                    if ($detalle) {
+                        $valorTotal += $detalle->valor;
+                    }
+                }
 
                 $dato = [
-                    'anio' => $estado->anio,
-                    'valor' => $valorActual,
+                    'anio' => (int) $anio,
+                    'valor' => $valorTotal,
                 ];
 
                 // Calcular variaciones si hay año anterior
                 if ($anioAnterior !== null && $valorAnterior !== null) {
-                    $variacionAbsoluta = $valorActual - $valorAnterior;
+                    $variacionAbsoluta = $valorTotal - $valorAnterior;
                     $variacionPorcentual = $valorAnterior != 0 
                         ? (($variacionAbsoluta / abs($valorAnterior)) * 100) 
                         : 0;
@@ -70,15 +84,15 @@ class GraficoVariacionesController extends Controller
                 }
 
                 $valores[] = $dato;
-                $anioAnterior = $estado->anio;
-                $valorAnterior = $valorActual;
+                $anioAnterior = (int) $anio;
+                $valorAnterior = $valorTotal;
             }
 
             $datos = [
                 'cuenta' => [
                     'id' => $cuenta->id,
-                    'codigo' => $cuenta->codigo,
-                    'nombre' => $cuenta->nombre,
+                    'codigo' => $cuenta->codigo_cuenta,
+                    'nombre' => $cuenta->nombre_cuenta,
                 ],
                 'periodo' => [
                     'inicio' => $anioInicio,
@@ -94,6 +108,7 @@ class GraficoVariacionesController extends Controller
                 'nombre' => $empresa->nombre,
             ],
             'cuentas' => $cuentas,
+            'aniosDisponibles' => $aniosDisponibles,
             'datos' => $datos,
         ]);
     }
