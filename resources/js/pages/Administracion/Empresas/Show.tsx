@@ -2,9 +2,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/layouts/app-layout';
+import { BreadcrumbItem } from '@/types';
 import { Head, Link } from '@inertiajs/react';
 import { route } from 'ziggy-js';
-import { BreadcrumbItem } from '@/types';
 
 // Interfaces
 interface Sector {
@@ -36,25 +36,18 @@ interface Empresa {
     nombre: string;
     sector: Sector;
     plantilla_catalogo: PlantillaCatalogo | null;
-}
-
-interface Stats {
-    catalogo_cuentas_count: number;
-    estados_financieros_count: number;
-    datos_venta_historicos_count: number;
-    ratios_calculados_count: number;
+    catalogoCuentas?: CatalogoCuenta[];
+    estadosFinancieros?: EstadoFinanciero[];
 }
 
 interface ShowProps {
     empresa: Empresa;
-    stats: Stats;
 }
 
-export default function EmpresasShow({ empresa, stats }: ShowProps) {
+export default function EmpresasShow({ empresa }: ShowProps) {
     const BREADCRUMBS: BreadcrumbItem[] = [
-        { title: 'Home', href: route('dashboard') },
-        { title: 'Empresas', href: route('empresas.index') },
-        { title: empresa.nombre, href: route('empresas.show', empresa.id) },
+        { title: 'Empresas', href: '/empresas' },
+        { title: empresa.nombre, href: '' },
     ];
 
     return (
@@ -140,43 +133,27 @@ export default function EmpresasShow({ empresa, stats }: ShowProps) {
                             <CardTitle>Estadísticas</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
+                            <div className="flex justify-between">
+                                <span className="text-sm font-medium text-gray-600">
                                     Cuentas en catálogo:
                                 </span>
-                                <Badge variant="blue" className="text-base font-bold px-3 py-1">
-                                    {stats.catalogo_cuentas_count}
+                                <Badge variant="secondary">
+                                    {empresa.catalogoCuentas?.length || 0}
                                 </Badge>
                             </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
+                            <div className="flex justify-between">
+                                <span className="text-sm font-medium text-gray-600">
                                     Estados financieros:
                                 </span>
-                                <Badge variant="green" className="text-base font-bold px-3 py-1">
-                                    {stats.estados_financieros_count}
-                                </Badge>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
-                                    Datos de venta históricos:
-                                </span>
-                                <Badge variant="yellow" className="text-base font-bold px-3 py-1">
-                                    {stats.datos_venta_historicos_count}
-                                </Badge>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-base font-medium text-gray-700 dark:text-gray-300">
-                                    Ratios calculados:
-                                </span>
-                                <Badge variant="red" className="text-base font-bold px-3 py-1">
-                                    {stats.ratios_calculados_count}
+                                <Badge variant="secondary">
+                                    {empresa.estadosFinancieros?.length || 0}
                                 </Badge>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <Card>
                         <CardHeader>
                             <CardTitle className="text-lg">
@@ -218,6 +195,29 @@ export default function EmpresasShow({ empresa, stats }: ShowProps) {
                                     )}
                                 >
                                     Ver Estados
+                                </Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="text-lg">
+                                Análisis de Ratios
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="mb-4 text-sm text-gray-600">
+                                Dashboard de análisis de ratios financieros
+                            </p>
+                            <Button asChild className="w-full">
+                                <Link
+                                    href={route(
+                                        'empresas.analisis.ratios.dashboard',
+                                        empresa.id,
+                                    )}
+                                >
+                                    Ver Análisis
                                 </Link>
                             </Button>
                         </CardContent>

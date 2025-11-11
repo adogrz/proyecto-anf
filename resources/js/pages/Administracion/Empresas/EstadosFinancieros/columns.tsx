@@ -4,6 +4,17 @@ import { Link, router } from '@inertiajs/react'; // Import router
 import { route } from 'ziggy-js';
 import { Badge } from '@/components/ui/badge';
 import { ArrowUpDown } from 'lucide-react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 // Interfaces
 interface Empresa {
@@ -80,9 +91,7 @@ export const columns: ColumnDef<EstadoFinanciero>[] = [
             const estadoFinancieroId = row.original.id;
 
             const handleDelete = () => {
-                if (confirm('¿Estás seguro de que quieres eliminar este estado financiero? Esta acción no se puede deshacer.')) {
-                    router.delete(route('empresas.estados-financieros.destroy', { empresa: empresaId, estados_financiero: estadoFinancieroId }));
-                }
+                router.delete(route('empresas.estados-financieros.destroy', { empresa: empresaId, estados_financiero: estadoFinancieroId }));
             };
 
             return (
@@ -97,9 +106,27 @@ export const columns: ColumnDef<EstadoFinanciero>[] = [
                             Editar
                         </Link>
                     </Button>
-                    <Button variant="destructive" size="sm" onClick={handleDelete}>
-                        Eliminar
-                    </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm">
+                                Eliminar
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Esta acción no se puede deshacer. Esto eliminará permanentemente este estado financiero.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete}>
+                                    Continuar
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             );
         },

@@ -7,6 +7,7 @@ trait TieneRatiosFinancieros
     // Constantes para nombres de ratios
     public const RAZON_CIRCULANTE = 'razon_circulante';
     public const PRUEBA_ACIDA = 'prueba_acida';
+    public const CAPITAL_TRABAJO = 'capital_trabajo';
     public const ROTACION_INVENTARIO = 'rotacion_inventario';
     public const DIAS_INVENTARIO = 'dias_inventario';
     public const ROTACION_ACTIVOS = 'rotacion_activos';
@@ -18,6 +19,7 @@ trait TieneRatiosFinancieros
     private static array $nombresRatios = [
         self::RAZON_CIRCULANTE => 'Razón Circulante',
         self::PRUEBA_ACIDA => 'Prueba Ácida',
+        self::CAPITAL_TRABAJO => 'Capital de Trabajo',
         self::ROTACION_INVENTARIO => 'Rotación de Inventario',
         self::DIAS_INVENTARIO => 'Días de Inventario',
         self::ROTACION_ACTIVOS => 'Rotación de Activos Totales',
@@ -30,6 +32,7 @@ trait TieneRatiosFinancieros
     private static array $formulasRatios = [
         self::RAZON_CIRCULANTE => 'Activo Circulante / Pasivo Circulante',
         self::PRUEBA_ACIDA => '(Activo Circulante - Inventario) / Pasivo Circulante',
+        self::CAPITAL_TRABAJO => '(Activo Circulante - Pasivo Circulante) / Activo Total',
         self::ROTACION_INVENTARIO => 'Costo de Ventas / Inventario',
         self::DIAS_INVENTARIO => '365 / (Costo de Ventas / Inventario)',
         self::ROTACION_ACTIVOS => 'Ventas / Activo Total',
