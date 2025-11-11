@@ -57,7 +57,8 @@ class EmpresasController extends Controller
 
         // Redirigir con el objeto empresa recién creado
         return redirect()->route('empresas.index')
-            ->with('success', 'Empresa creada con éxito.');
+            ->with('success', 'Empresa creada con éxito.')
+            ->with('empresa', $empresa);
     }
 
     public function show(Empresa $empresa)

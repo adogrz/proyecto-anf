@@ -387,7 +387,7 @@ const CargarCatalogoBaseStep: React.FC<CargarCatalogoBaseStepProps> = ({ empresa
           <Button onClick={handlePreview} disabled={!archivo || isProcessing} size="lg">
             {isProcessing ? 'Previsualizando...' : 'Previsualizar Catálogo'}
           </Button>
-          <Button variant="download" size="lg" asChild>
+          <Button variant="success" size="lg" asChild>
             <a href={route('importacion.descargarPlantilla', { tipo: 'catalogo' })}>
               <FileDown className="mr-2 h-4 w-4" /> Descargar Plantilla
             </a>
@@ -647,7 +647,7 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
         <CardDescription>Arrastre y suelte su catálogo en formato Excel (.xlsx, .xls, .csv) en el área designada o haga clic para seleccionarlo.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
             <Label 
                 htmlFor="catalogo-file-input" 
                 className={`flex-1 flex items-center justify-center w-full p-6 border-2 border-dashed rounded-md cursor-pointer transition-colors 
@@ -670,9 +670,16 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
                 onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} 
                 accept=".xlsx,.xls,.csv" 
             />
-          <Button onClick={handleAutomap} disabled={!archivo || isProcessing} size="lg">
-            {isProcessing ? 'Procesando...' : 'Iniciar Auto-Mapeo'}
-          </Button>
+          <div className="flex flex-col gap-2">
+            <Button onClick={handleAutomap} disabled={!archivo || isProcessing} size="lg">
+              {isProcessing ? 'Procesando...' : 'Iniciar Auto-Mapeo'}
+            </Button>
+            <Button variant="success" size="lg" asChild>
+              <a href={route('importacion.descargarPlantilla', { tipo: 'catalogo' })}>
+                <FileDown className="mr-2 h-4 w-4" /> Descargar Plantilla
+              </a>
+            </Button>
+          </div>
         </div>
 
         {isProcessing && uploadProgress > 0 && <Progress value={uploadProgress} className="w-full" />}
@@ -885,12 +892,12 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
         </div>
 
         <div className="flex justify-end gap-2 flex-wrap">
-            <Button variant="download" asChild>
+            <Button variant="outline" asChild>
                 <a href={route('importacion.descargarPlantilla', { tipo: 'balance' })}>
                     <FileDown className="mr-2 h-4 w-4" /> Plantilla Balance General
                 </a>
             </Button>
-            <Button variant="download" asChild>
+            <Button variant="outline" asChild>
                 <a href={route('importacion.descargarPlantilla', { tipo: 'resultados' })}>
                     <FileDown className="mr-2 h-4 w-4" /> Plantilla Estado de Resultados
                 </a>
