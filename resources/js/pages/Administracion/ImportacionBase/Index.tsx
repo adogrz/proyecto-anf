@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import InputError from '@/components/input-error';
+import Heading from '@/components/heading';
 
 type PreviewData = Array<string[]>;
 

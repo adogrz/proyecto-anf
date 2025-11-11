@@ -11,6 +11,8 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
+use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
+
 class EstadoFinancieroService
 {
     public function previsualizar(UploadedFile $file, int $empresaId, int $anio, string $tipoEstado): array
@@ -20,11 +22,37 @@ class EstadoFinancieroService
         $previewData = []; // Each item will now include status and row_errors
 
         try {
-            $import = new class implements WithHeadingRow {};
-            $filas = Excel::toArray($import, $file)[0] ?? [];
+            $filas = [];
+            $extension = strtolower($file->getClientOriginalExtension());
+
+            if ($extension === 'csv') {
+                // Try parsing with comma delimiter first (standard for new templates)
+                $importComma = new class implements WithHeadingRow, WithCustomCsvSettings {
+                    public function getCsvSettings(): array
+                    {
+                        return ['delimiter' => ','];
+                    }
+                };
+                $filas = Excel::toArray($importComma, $file)[0] ?? [];
+
+                // If parsing with comma yields no data or a single column (bad parse), try with semicolon
+                if (empty($filas) || (count($filas) > 0 && count($filas[0]) <= 1)) {
+                    $importSemicolon = new class implements WithHeadingRow, WithCustomCsvSettings {
+                        public function getCsvSettings(): array
+                        {
+                            return ['delimiter' => ';'];
+                        }
+                    };
+                    $filas = Excel::toArray($importSemicolon, $file)[0] ?? [];
+                }
+            } else {
+                // For XLSX, XLS, etc., use default import
+                $import = new class implements WithHeadingRow {};
+                $filas = Excel::toArray($import, $file)[0] ?? [];
+            }
 
             if (empty($filas)) {
-                $erroresGlobales[] = "El archivo está vacío o no se pudo leer.";
+                $erroresGlobales[] = "El archivo está vacío o no se pudo leer. Verifique el formato y el delimitador (coma o punto y coma).";
                 return ['datos' => [], 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
             }
 
@@ -41,12 +69,6 @@ class EstadoFinancieroService
                 ->keyBy('codigo');
 
             // --- 1. Initial Header Check ---
-            // Ensure there's at least one row to get headers from
-            if (empty($filas)) {
-                $erroresGlobales[] = "El archivo está vacío o no contiene datos.";
-                return ['datos' => [], 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
-            }
-            
             $firstRow = $filas[0];
             $normalizedHeaders = array_keys($this->normalizeRowKeys($firstRow));
 
@@ -54,7 +76,6 @@ class EstadoFinancieroService
             if ($tipoEstado === 'estado_resultados') {
                 $expectedHeaders[] = 'periodo';
             }
-            // For balance general, 'fecha' is derived, so not a strict required header from file
 
             $missingHeaders = array_diff($expectedHeaders, $normalizedHeaders);
 
@@ -99,13 +120,10 @@ class EstadoFinancieroService
                 } else {
                     // Attempt to normalize decimal separator
                     $normalizedSaldo = (string)$saldoRaw;
-                    // Check for comma as decimal separator (e.g., "1.234,56" or "123,45")
-                    // If it contains a comma AND the last comma is after any dot, or no dot exists
                     if (str_contains($normalizedSaldo, ',') && (!str_contains($normalizedSaldo, '.') || strrpos($normalizedSaldo, ',') > strrpos($normalizedSaldo, '.'))) {
-                        $normalizedSaldo = str_replace('.', '', $normalizedSaldo); // Remove thousands separator (dot)
-                        $normalizedSaldo = str_replace(',', '.', $normalizedSaldo); // Replace comma with dot for decimal
+                        $normalizedSaldo = str_replace('.', '', $normalizedSaldo);
+                        $normalizedSaldo = str_replace(',', '.', $normalizedSaldo);
                     } else {
-                        // Assume dot is decimal separator, remove commas if present (thousands separator)
                         $normalizedSaldo = str_replace(',', '', $normalizedSaldo);
                     }
 
@@ -137,9 +155,9 @@ class EstadoFinancieroService
 
                 // Add row to previewData with its status and errors/warnings
                 $previewData[] = [
-                    'original_row_data' => $fila, // Keep original row for reference if needed
+                    'original_row_data' => $fila,
                     'codigo_cuenta' => $codigoCuenta,
-                    'nombre_cuenta' => $cuentaBase->nombre ?? 'N/A', // Use N/A if cuentaBase not found or error
+                    'nombre_cuenta' => $cuentaBase->nombre ?? 'N/A',
                     'cuenta_base_id' => $cuentaBase->id ?? null,
                     'cuenta_base_nombre' => $cuentaBase->nombre ?? 'N/A',
                     'saldo' => $saldo,
@@ -163,13 +181,10 @@ class EstadoFinancieroService
             $erroresGlobales[] = "Error al procesar el archivo: " . $e->getMessage();
         }
 
-        // Filter out valid data if there are global errors, or if no valid data was found
-        // If there are global errors, we return an empty 'datos' array, but still show global errors/warnings
-        // If there are only row-level errors/warnings, we return all rows with their statuses
         $finalDatos = [];
-        if (empty($erroresGlobales)) { // Only include data if no critical global errors
+        if (empty($erroresGlobales)) {
             foreach ($previewData as $item) {
-                $finalDatos[] = $item; // Include all rows, even those with warnings/errors, for detailed preview
+                $finalDatos[] = $item;
             }
         }
 
@@ -236,7 +251,12 @@ class EstadoFinancieroService
     {
         $out = [];
         foreach ($row as $k => $v) {
+            if (is_null($k)) {
+                continue;
+            }
             $key = strtolower(trim((string)$k));
+            // Remove potential UTF-8 BOM from the first key
+            $key = preg_replace('/^\x{FEFF}/u', '', $key);
             $key = preg_replace('/[\s\-]+/', '_', $key);
             $out[$key] = $v;
         }

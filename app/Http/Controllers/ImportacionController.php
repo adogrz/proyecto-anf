@@ -386,10 +386,7 @@ class ImportacionController extends Controller
         $sheet = $spreadsheet->getActiveSheet();
 
         // Escribir cabeceras (fila 1)
-        $col = 1;
-        foreach ($headers as $h) {
-            $sheet->setCellValueByColumnAndRow($col++, 1, $h);
-        }
+        $sheet->fromArray($headers, NULL, 'A1');
 
         // Escribir filas de ejemplo a partir de la fila 2
         $rowIndex = 2;
@@ -406,8 +403,8 @@ class ImportacionController extends Controller
             $filename = "plantilla_{$tipo}.csv";
 
             $writer = new Csv($spreadsheet);
-            // Use semicolon as delimiter for locales where Excel expects ; as separator
-            $writer->setDelimiter(';');
+            // Use comma as delimiter for better compatibility
+            $writer->setDelimiter(',');
             $writer->setEnclosure('"');
             $writer->setLineEnding("\r\n");
             // Include BOM so Excel detects UTF-8 properly
