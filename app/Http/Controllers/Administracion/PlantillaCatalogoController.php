@@ -15,7 +15,7 @@ class PlantillaCatalogoController extends Controller
         $plantillas = PlantillaCatalogo::all();
         $breadcrumbs = [
             ['title' => 'Administración', 'href' => '#'],
-            ['title' => 'Plantillas de Catálogo', 'href' => route('plantillas-catalogo.index')],
+            ['title' => 'Plantillas de Catálogo', 'href' => '#'],
         ];
         return Inertia::render('Administracion/PlantillasCatalogo/Index', [
             'plantillas' => $plantillas,
@@ -28,7 +28,7 @@ class PlantillaCatalogoController extends Controller
         $breadcrumbs = [
             ['title' => 'Administración', 'href' => '#'],
             ['title' => 'Plantillas de Catálogo', 'href' => route('plantillas-catalogo.index')],
-            ['title' => 'Crear', 'href' => route('plantillas-catalogo.create')],
+            ['title' => 'Crear', 'href' => '#'],
         ];
         return Inertia::render('Administracion/PlantillasCatalogo/Create', [
             'breadcrumbs' => $breadcrumbs,
@@ -49,9 +49,9 @@ class PlantillaCatalogoController extends Controller
 
     public function show(PlantillaCatalogo $plantilla_catalogo)
     {
+        $plantilla_catalogo->loadCount(['cuentasBase', 'empresas']); // Load counts directly
         $cuentas = $plantilla_catalogo->cuentasBase()->orderBy('codigo')->get();
         $tree = $this->buildTree($cuentas);
-        $empresasCount = $plantilla_catalogo->empresas()->count();
 
         $breadcrumbs = [
             ['title' => 'Administración', 'href' => '#'],
@@ -62,7 +62,8 @@ class PlantillaCatalogoController extends Controller
         return Inertia::render('Administracion/PlantillasCatalogo/Show', [
             'plantilla' => $plantilla_catalogo,
             'cuentas_base_tree' => $tree,
-            'empresas_count' => $empresasCount,
+            'empresas_count' => $plantilla_catalogo->empresas_count, // Use the loaded count
+            'cuentas_base_count' => $plantilla_catalogo->cuentas_base_count, // Pass cuentas_base_count
             'breadcrumbs' => $breadcrumbs,
         ]);
     }
@@ -73,7 +74,7 @@ class PlantillaCatalogoController extends Controller
             ['title' => 'Administración', 'href' => '#'],
             ['title' => 'Plantillas de Catálogo', 'href' => route('plantillas-catalogo.index')],
             ['title' => $plantilla_catalogo->nombre, 'href' => '#'],
-            ['title' => 'Editar', 'href' => route('plantillas-catalogo.edit', $plantilla_catalogo->id)],
+            ['title' => 'Editar', 'href' => '#'],
         ];
         return Inertia::render('Administracion/PlantillasCatalogo/Edit', [
             'plantilla' => $plantilla_catalogo,
@@ -97,6 +98,11 @@ class PlantillaCatalogoController extends Controller
     {
         if ($plantilla_catalogo->empresas()->exists()) {
             return redirect()->route('plantillas-catalogo.index')->with('error', 'No se puede eliminar la plantilla porque está en uso por una o más empresas.');
+        }
+
+        // Add check for associated CuentaBase records
+        if ($plantilla_catalogo->cuentasBase()->exists()) {
+            return redirect()->route('plantillas-catalogo.index')->with('error', 'No se puede eliminar la plantilla porque tiene cuentas base asociadas. Elimine las cuentas base primero.');
         }
 
         $plantilla_catalogo->delete();

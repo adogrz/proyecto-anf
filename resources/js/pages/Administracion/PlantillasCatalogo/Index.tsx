@@ -1,5 +1,5 @@
 
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
@@ -7,6 +7,18 @@ import { columns, Plantilla } from './columns';
 import { DataTable } from '@/components/ui/data-table';
 import { type BreadcrumbItem } from '@/types';
 import { route } from 'ziggy-js';
+import { useState } from 'react';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 // Definiendo los props del componente
 interface IndexProps {
@@ -14,14 +26,43 @@ interface IndexProps {
     breadcrumbs?: BreadcrumbItem[];
 }
 
-const BREADCRUMBS: BreadcrumbItem[] = [
-    { title: 'Home', href: route('dashboard') },
-    { title: 'Plantillas de Catálogo', href: route('plantillas-catalogo.index') },
-];
+export default function PlantillasCatalogoIndex({ plantillas, breadcrumbs }: IndexProps) {
+    const [showAlertDialog, setShowAlertDialog] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState<Plantilla | null>(null);
+    const [itemNameToDelete, setItemNameToDelete] = useState('');
 
-export default function PlantillasCatalogoIndex({ plantillas }: IndexProps) {
+    const handleDeleteClick = (item: Plantilla) => {
+        setItemToDelete(item);
+        setItemNameToDelete(item.nombre);
+        setShowAlertDialog(true);
+    };
+
+    const handleConfirmDelete = () => {
+        if (itemToDelete) {
+            router.delete(route('plantillas-catalogo.destroy', { plantilla_catalogo: itemToDelete.id }), {
+                onSuccess: () => {
+                    toast.success('Plantilla eliminada', {
+                        description: `La plantilla "${itemNameToDelete}" ha sido eliminada correctamente.`,
+                    });
+                    setShowAlertDialog(false);
+                    setItemToDelete(null);
+                    setItemNameToDelete('');
+                },
+                onError: (errors) => {
+                    const errorMessage = errors.error || 'No se pudo eliminar la plantilla.';
+                    toast.error('Error al eliminar plantilla', {
+                        description: errorMessage,
+                    });
+                    setShowAlertDialog(false);
+                    setItemToDelete(null);
+                    setItemNameToDelete('');
+                },
+            });
+        }
+    };
+
     return (
-        <AppLayout breadcrumbs={BREADCRUMBS}>
+        <AppLayout breadcrumbs={breadcrumbs}>
             <Head title="Gestión de Plantillas de Catálogo" />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center mb-6">
@@ -36,13 +77,30 @@ export default function PlantillasCatalogoIndex({ plantillas }: IndexProps) {
 
                 <div className="shadow-md rounded-lg p-6">
                     <DataTable 
-                        columns={columns} 
+                        columns={columns(handleDeleteClick)} 
                         data={plantillas} 
                         filterColumn="nombre"
                         filterPlaceholder="Filtrar por nombre..."
                     />
                 </div>
             </div>
+
+            <AlertDialog open={showAlertDialog} onOpenChange={setShowAlertDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Esto eliminará permanentemente la plantilla "{itemNameToDelete}" y todos sus datos asociados.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Eliminar
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </AppLayout>
     );
 }

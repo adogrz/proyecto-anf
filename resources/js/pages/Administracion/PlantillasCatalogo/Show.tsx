@@ -27,6 +27,10 @@ interface Plantilla {
 
     descripcion: string;
 
+    cuentas_base_count?: number;
+
+    empresas_count?: number;
+
 }
 
 
@@ -37,15 +41,13 @@ interface ShowProps {
 
     cuentas_base_tree: CuentaBaseNode[];
 
-    empresas_count: number;
-
     breadcrumbs?: BreadcrumbItem[];
 
 }
 
 
 
-export default function PlantillasCatalogoShow({ plantilla, cuentas_base_tree = [], empresas_count, breadcrumbs }: ShowProps) {
+export default function PlantillasCatalogoShow({ plantilla, cuentas_base_tree = [], breadcrumbs }: ShowProps) {
 
     return (
 
@@ -83,7 +85,7 @@ export default function PlantillasCatalogoShow({ plantilla, cuentas_base_tree = 
 
                                 <span className="font-medium">Total de Cuentas Base:</span>
 
-                                <span>{cuentas_base_tree.length}</span>
+                                <span>{plantilla.cuentas_base_count ?? 0}</span>
 
                             </div>
 
@@ -125,15 +127,15 @@ export default function PlantillasCatalogoShow({ plantilla, cuentas_base_tree = 
 
                                 <span className="font-medium">Empresas Asociadas:</span>
 
-                                <span>{empresas_count}</span>
+                                <span>{plantilla.empresas_count ?? 0}</span>
 
                             </div>
 
-                            {empresas_count > 0 && (
+                            {plantilla.empresas_count && plantilla.empresas_count > 0 && (
 
                                 <p className="text-sm text-gray-500 mt-2">
 
-                                    Esta plantilla está siendo utilizada por {empresas_count} empresa(s).
+                                    Esta plantilla está siendo utilizada por {plantilla.empresas_count} empresa(s).
 
                                 </p>
 

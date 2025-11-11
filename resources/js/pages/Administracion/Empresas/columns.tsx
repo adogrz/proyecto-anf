@@ -42,7 +42,7 @@ export interface Empresa {
     plantilla_catalogo: PlantillaCatalogo | null;
 }
 
-export const columns: ColumnDef<Empresa>[] = [
+export const columns = (handleDeleteClick: (empresa: Empresa) => void): ColumnDef<Empresa>[] => [
     {
         id: 'select',
         header: ({ table }) => (
@@ -170,14 +170,8 @@ export const columns: ColumnDef<Empresa>[] = [
                             </Link>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600" asChild>
-                            <Link
-                                href={route('empresas.destroy', empresa.id)}
-                                method="delete"
-                                as="button"
-                            >
-                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                            </Link>
+                        <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(empresa)}>
+                            <Trash2 className="mr-2 h-4 w-4" /> Eliminar
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

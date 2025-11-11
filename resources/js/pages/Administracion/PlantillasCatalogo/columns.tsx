@@ -13,7 +13,7 @@ export interface Plantilla {
     descripcion: string;
 }
 
-export const columns: ColumnDef<Plantilla>[] = [
+export const columns = (handleDeleteClick: (plantilla: Plantilla) => void): ColumnDef<Plantilla>[] => [
   {
     id: "select",
     header: ({ table }) => (
@@ -59,16 +59,14 @@ export const columns: ColumnDef<Plantilla>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <Link href={route('plantillas-catalogo.show', { plantilla_catalogo: plantilla.id })}><Eye className="mr-2 h-4 w-4" /> Ver</Link>
+              <Link href={route('plantillas-catalogo.show', { plantillas_catalogo: plantilla.id })}><Eye className="mr-2 h-4 w-4" /> Ver</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={route('plantillas-catalogo.edit', plantilla.id)}><Pencil className="mr-2 h-4 w-4" /> Editar</Link>
+              <Link href={route('plantillas-catalogo.edit', { plantillas_catalogo: plantilla.id })}><Pencil className="mr-2 h-4 w-4" /> Editar</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-red-600" asChild>
-              <Link href={route('plantillas-catalogo.destroy', plantilla.id)} method="delete" as="button">
-                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-              </Link>
+            <DropdownMenuItem className="text-red-600" onClick={() => handleDeleteClick(plantilla)}>
+              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
