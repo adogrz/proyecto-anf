@@ -4,6 +4,8 @@ import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { columns, EstadoFinanciero } from './columns';
 import { DataTable } from '@/components/ui/data-table';
+import { BreadcrumbItem } from '@/types';
+import { route } from 'ziggy-js';
 
 // Interfaces
 interface Empresa {
@@ -17,8 +19,15 @@ interface IndexProps {
 }
 
 export default function EstadosFinancierosIndex({ empresa, estadosFinancieros }: IndexProps) {
+    const BREADCRUMBS: BreadcrumbItem[] = [
+        { title: 'Home', href: route('dashboard') },
+        { title: 'Empresas', href: route('empresas.index') },
+        { title: empresa.nombre, href: route('empresas.show', empresa.id) },
+        { title: 'Estados Financieros', href: route('empresas.estados-financieros.index', empresa.id) },
+    ];
+
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title={`Estados Financieros de ${empresa.nombre}`} />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center mb-6">

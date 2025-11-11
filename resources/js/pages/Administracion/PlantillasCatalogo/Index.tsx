@@ -1,18 +1,27 @@
+
 import { Head, Link } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { columns, Plantilla } from './columns';
 import { DataTable } from '@/components/ui/data-table';
+import { type BreadcrumbItem } from '@/types';
+import { route } from 'ziggy-js';
 
 // Definiendo los props del componente
 interface IndexProps {
     plantillas: Plantilla[];
+    breadcrumbs?: BreadcrumbItem[];
 }
+
+const BREADCRUMBS: BreadcrumbItem[] = [
+    { title: 'Home', href: route('dashboard') },
+    { title: 'Plantillas de Catálogo', href: route('plantillas-catalogo.index') },
+];
 
 export default function PlantillasCatalogoIndex({ plantillas }: IndexProps) {
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title="Gestión de Plantillas de Catálogo" />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <div className="flex justify-between items-center mb-6">

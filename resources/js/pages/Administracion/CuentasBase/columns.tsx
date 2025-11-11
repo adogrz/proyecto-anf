@@ -1,3 +1,4 @@
+
 import { ColumnDef } from "@tanstack/react-table"
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -12,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { MoreHorizontal } from "lucide-react"
 import { Link } from "@inertiajs/react"
+import { Badge } from "@/components/ui/badge"
 
 export interface CuentaBase {
     id: number;
@@ -69,12 +71,28 @@ export const columns: ColumnDef<CuentaBase>[] = [
     header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Tipo" />
     ),
+    cell: ({ row }) => {
+        const tipo = row.getValue("tipo_cuenta") as string;
+        return (
+            <Badge variant={tipo === "AGRUPACION" ? "blue" : "green"}>
+                {tipo}
+            </Badge>
+        );
+    },
   },
   {
     accessorKey: "naturaleza",
     header: ({ column }) => (
         <DataTableColumnHeader column={column} title="Naturaleza" />
     ),
+    cell: ({ row }) => {
+        const naturaleza = row.getValue("naturaleza") as string;
+        return (
+            <Badge variant={naturaleza === "DEUDORA" ? "red" : "yellow"}>
+                {naturaleza}
+            </Badge>
+        );
+    },
   },
   {
     accessorKey: "plantilla_catalogo.nombre",

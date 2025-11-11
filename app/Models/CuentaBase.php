@@ -36,4 +36,14 @@ class CuentaBase extends Model
     {
         return $this->hasMany(CuentaBase::class, 'parent_id');
     }
+
+    public function parentRecursive(): BelongsTo
+    {
+        return $this->parent()->with('parentRecursive');
+    }
+
+    public function childrenRecursive(): HasMany
+    {
+        return $this->children()->with('childrenRecursive');
+    }
 }

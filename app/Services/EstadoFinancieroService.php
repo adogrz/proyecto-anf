@@ -3,83 +3,243 @@
 namespace App\Services;
 
 use App\Models\CatalogoCuenta;
+use App\Models\DetalleEstado;
 use App\Models\EstadoFinanciero;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\UploadedFile;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Imports\HeadingRowFormatter;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class EstadoFinancieroService
 {
-    public function previsualizar(int $empresaId, string $filePath): array
+    public function previsualizar(UploadedFile $file, int $empresaId, int $anio, string $tipoEstado): array
     {
-        HeadingRowFormatter::default('custom'); // Evita la conversión a snake_case
+        $erroresGlobales = []; // For errors affecting the whole file
+        $warningsGlobales = []; // For warnings affecting the whole file
+        $previewData = []; // Each item will now include status and row_errors
 
-        $catalogoMapeado = CatalogoCuenta::where('empresa_id', $empresaId)
-            ->whereNotNull('cuenta_base_id')
-            ->with('cuentaBase')
-            ->get()
-            ->keyBy('codigo_cuenta');
+        try {
+            $import = new class implements WithHeadingRow {};
+            $filas = Excel::toArray($import, $file)[0] ?? [];
 
-        $import = new class implements WithHeadingRow {};
-        $filas = Excel::toArray($import, $filePath)[0];
-        
-        $datosPrevisualizacion = [];
-        $errores = [];
-        $codigosProcesados = [];
-
-        foreach ($filas as $index => $fila) {
-            $numeroFila = $index + 2; // +2 para la cabecera y el índice base 1
-            $codigoCuenta = $fila['codigo_cuenta'] ?? null;
-            $valor = $fila['valor'] ?? null;
-
-            if (!$codigoCuenta) {
-                $errores[] = "Error en la fila {$numeroFila}: La columna 'codigo_cuenta' está vacía.";
-                continue;
-            }
-            if (!is_numeric($valor)) {
-                $errores[] = "Error en la fila {$numeroFila} (Cuenta: {$codigoCuenta}): El valor '{$valor}' no es numérico.";
-                continue;
-            }
-            if (!$catalogoMapeado->has($codigoCuenta)) {
-                $errores[] = "Error en la fila {$numeroFila}: La cuenta '{$codigoCuenta}' no existe en su catálogo o no ha sido mapeada.";
-                continue;
-            }
-            if (in_array($codigoCuenta, $codigosProcesados)) {
-                $errores[] = "Error en la fila {$numeroFila}: La cuenta '{$codigoCuenta}' está duplicada.";
-                continue;
+            if (empty($filas)) {
+                $erroresGlobales[] = "El archivo está vacío o no se pudo leer.";
+                return ['datos' => [], 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
             }
 
-            $codigosProcesados[] = $codigoCuenta;
-            $cuentaCatalogo = $catalogoMapeado[$codigoCuenta];
+            // Get the company's plantilla_catalogo_id
+            $empresa = \App\Models\Empresa::find($empresaId);
+            if (!$empresa || !$empresa->plantilla_catalogo_id) {
+                $erroresGlobales[] = "La empresa no tiene una plantilla de catálogo asociada.";
+                return ['datos' => [], 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
+            }
 
-            $datosPrevisualizacion[] = [
-                'catalogo_cuenta_id' => $cuentaCatalogo->id,
-                'nombre_cuenta' => $cuentaCatalogo->nombre_cuenta,
-                'valor' => $valor,
-                'cuenta_base_nombre' => $cuentaCatalogo->cuentaBase->nombre,
-            ];
+            // Get the CuentaBase records associated with the company's plantilla
+            $cuentasBasePlantilla = \App\Models\CuentaBase::where('plantilla_catalogo_id', $empresa->plantilla_catalogo_id)
+                ->get()
+                ->keyBy('codigo');
+
+            // --- 1. Initial Header Check ---
+            // Ensure there's at least one row to get headers from
+            if (empty($filas)) {
+                $erroresGlobales[] = "El archivo está vacío o no contiene datos.";
+                return ['datos' => [], 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
+            }
+            
+            $firstRow = $filas[0];
+            $normalizedHeaders = array_keys($this->normalizeRowKeys($firstRow));
+
+            $expectedHeaders = ['codigo_cuenta', 'saldo'];
+            if ($tipoEstado === 'estado_resultados') {
+                $expectedHeaders[] = 'periodo';
+            }
+            // For balance general, 'fecha' is derived, so not a strict required header from file
+
+            $missingHeaders = array_diff($expectedHeaders, $normalizedHeaders);
+
+            if (!empty($missingHeaders)) {
+                $erroresGlobales[] = "Faltan columnas obligatorias en el archivo: " . implode(', ', $missingHeaders) . ". Por favor, use la plantilla de descarga.";
+                return ['datos' => [], 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
+            }
+            // --- End Initial Header Check ---
+
+            $numeroFila = 1; // Start from 1 for user-friendly row numbering (assuming first row is headers)
+            foreach ($filas as $fila) {
+                $numeroFila++; // Increment for each data row
+                $rowErrors = [];
+                $rowWarnings = [];
+                $rowStatus = 'valid';
+
+                $filaNorm = $this->normalizeRowKeys($fila);
+
+                $codigoCuenta = trim((string)($filaNorm['codigo_cuenta'] ?? $filaNorm['codigo'] ?? ''));
+                $saldoRaw = $filaNorm['saldo'] ?? $filaNorm['valor'] ?? null; // Keep raw for validation
+
+                // --- Validation for codigo_cuenta ---
+                if (empty($codigoCuenta)) {
+                    $rowErrors[] = "El código de cuenta es obligatorio.";
+                    $rowStatus = 'error';
+                }
+
+                $cuentaBase = null;
+                if ($rowStatus !== 'error') { // Only check if no prior errors for this field
+                    $cuentaBase = $cuentasBasePlantilla->get($codigoCuenta);
+                    if (!$cuentaBase) {
+                        $rowWarnings[] = "La cuenta '{$codigoCuenta}' no existe en las cuentas base de la plantilla de la empresa.";
+                        if ($rowStatus === 'valid') $rowStatus = 'warning'; // Only downgrade from valid to warning
+                    }
+                }
+
+                // --- Validation for saldo ---
+                $saldo = 0.0;
+                if ($saldoRaw === null || $saldoRaw === '') {
+                    $rowErrors[] = "El monto (saldo) es obligatorio.";
+                    $rowStatus = 'error';
+                } else {
+                    // Attempt to normalize decimal separator
+                    $normalizedSaldo = (string)$saldoRaw;
+                    // Check for comma as decimal separator (e.g., "1.234,56" or "123,45")
+                    // If it contains a comma AND the last comma is after any dot, or no dot exists
+                    if (str_contains($normalizedSaldo, ',') && (!str_contains($normalizedSaldo, '.') || strrpos($normalizedSaldo, ',') > strrpos($normalizedSaldo, '.'))) {
+                        $normalizedSaldo = str_replace('.', '', $normalizedSaldo); // Remove thousands separator (dot)
+                        $normalizedSaldo = str_replace(',', '.', $normalizedSaldo); // Replace comma with dot for decimal
+                    } else {
+                        // Assume dot is decimal separator, remove commas if present (thousands separator)
+                        $normalizedSaldo = str_replace(',', '', $normalizedSaldo);
+                    }
+
+                    if (!is_numeric($normalizedSaldo)) {
+                        $rowErrors[] = "El monto (saldo) debe ser un valor numérico válido.";
+                        $rowStatus = 'error';
+                    } else {
+                        $saldo = (float)$normalizedSaldo;
+                    }
+                }
+
+                $periodo = null;
+                $fecha = null;
+
+                // --- Specific validations based on tipoEstado ---
+                if ($tipoEstado === 'estado_resultados') {
+                    $periodo = trim((string)($filaNorm['periodo'] ?? $filaNorm['month'] ?? ''));
+                    if (empty($periodo)) {
+                        $rowErrors[] = "El período es obligatorio para Estado de Resultados.";
+                        $rowStatus = 'error';
+                    } elseif (!preg_match('/^\d{4}-\d{2}$/', $periodo)) {
+                        $rowErrors[] = "Formato de período inválido para Estado de Resultados. Se espera YYYY-MM.";
+                        $rowStatus = 'error';
+                    } elseif (substr($periodo, 0, 4) != $anio) {
+                        $rowErrors[] = "El período '{$periodo}' no corresponde al año {$anio} especificado.";
+                        $rowStatus = 'error';
+                    }
+                }
+
+                // Add row to previewData with its status and errors/warnings
+                $previewData[] = [
+                    'original_row_data' => $fila, // Keep original row for reference if needed
+                    'codigo_cuenta' => $codigoCuenta,
+                    'nombre_cuenta' => $cuentaBase->nombre ?? 'N/A', // Use N/A if cuentaBase not found or error
+                    'cuenta_base_id' => $cuentaBase->id ?? null,
+                    'cuenta_base_nombre' => $cuentaBase->nombre ?? 'N/A',
+                    'saldo' => $saldo,
+                    'fecha' => $fecha,
+                    'periodo' => $periodo,
+                    'status' => $rowStatus,
+                    'row_errors' => $rowErrors,
+                    'row_warnings' => $rowWarnings,
+                ];
+
+                if ($rowStatus === 'error') {
+                    $erroresGlobales = array_merge($erroresGlobales, $rowErrors);
+                }
+                if ($rowStatus === 'warning') {
+                    $warningsGlobales = array_merge($warningsGlobales, $rowWarnings);
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error("Error en previsualizar Estado Financiero: " . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            $erroresGlobales[] = "Error al procesar el archivo: " . $e->getMessage();
         }
 
-        HeadingRowFormatter::default('slug'); // Revertir al default
-        return ['datos' => $datosPrevisualizacion, 'errores' => $errores];
+        // Filter out valid data if there are global errors, or if no valid data was found
+        // If there are global errors, we return an empty 'datos' array, but still show global errors/warnings
+        // If there are only row-level errors/warnings, we return all rows with their statuses
+        $finalDatos = [];
+        if (empty($erroresGlobales)) { // Only include data if no critical global errors
+            foreach ($previewData as $item) {
+                $finalDatos[] = $item; // Include all rows, even those with warnings/errors, for detailed preview
+            }
+        }
+
+        return ['datos' => $finalDatos, 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
     }
 
-    public function guardarDesdePrevisualizacion(array $validatedData): void
+    public function guardar(int $empresaId, int $anio, string $tipoEstado, array $detalles): void
     {
-        DB::transaction(function () use ($validatedData) {
-            $estadoFinanciero = EstadoFinanciero::updateOrCreate(
-                [
-                    'empresa_id' => $validatedData['empresa_id'],
-                    'anio' => $validatedData['anio'],
-                    'tipo_estado' => $validatedData['tipo_estado'],
-                ],
-                [] // No hay campos que actualizar, solo buscar o crear
-            );
+        DB::transaction(function () use ($empresaId, $anio, $tipoEstado, $detalles) {
+            // Delete existing financial statement for the given year and type to prevent duplicates
+            $estadoFinancieroExistente = EstadoFinanciero::where('empresa_id', $empresaId)
+                ->where('anio', $anio)
+                ->where('tipo_estado', $tipoEstado)
+                ->first();
 
-            $estadoFinanciero->detalles()->delete();
+            if ($estadoFinancieroExistente) {
+                $estadoFinancieroExistente->detalles()->delete();
+                $estadoFinancieroExistente->delete();
+            }
 
-            $estadoFinanciero->detalles()->createMany($validatedData['detalles']);
+            $estadoFinanciero = EstadoFinanciero::create([
+                'empresa_id' => $empresaId,
+                'anio' => $anio,
+                'tipo_estado' => $tipoEstado,
+            ]);
+
+            foreach ($detalles as $index => $detalle) {
+                $fechaParaGuardar = null;
+                if ($tipoEstado === 'balance_general') {
+                    $fechaParaGuardar = "{$anio}-12-31";
+                }
+
+                // Find the CatalogoCuenta for the given empresa_id and codigo_cuenta from the uploaded file
+                $catalogoCuenta = \App\Models\CatalogoCuenta::where('empresa_id', $empresaId)
+                                                            ->where('codigo_cuenta', $detalle['codigo_cuenta']) // Use codigo_cuenta from the detail
+                                                            ->first();
+
+                if (!$catalogoCuenta) {
+                    // This is a critical error. If the code from the Excel was validated against CuentaBase,
+                    // but there's no corresponding CatalogoCuenta, it means the mapping is incomplete or incorrect.
+                    Log::error('EstadoFinancieroService: No se encontró CatalogoCuenta para guardar DetalleEstado. La cuenta del archivo no está mapeada para esta empresa.', [
+                        'empresa_id' => $empresaId,
+                        'codigo_cuenta_from_excel' => $detalle['codigo_cuenta'],
+                        'cuenta_base_id_from_preview' => $detalle['cuenta_base_id'], // For debugging
+                        'detalle_index' => $index
+                    ]);
+                    // Throw an exception to roll back the transaction and provide feedback
+                    throw new \Exception("La cuenta '{$detalle['codigo_cuenta']}' del archivo no está mapeada en el catálogo de la empresa.");
+                }
+
+                DetalleEstado::create([
+                    'estado_financiero_id' => $estadoFinanciero->id,
+                    'catalogo_cuenta_id' => $catalogoCuenta->id, // Use catalogo_cuenta_id
+                    'codigo_cuenta' => $detalle['codigo_cuenta'], // This is the company's specific code
+                    'valor' => $detalle['saldo'], // Use 'valor' instead of 'saldo'
+                    'fecha' => $fechaParaGuardar,
+                    'periodo' => $detalle['periodo'] ?? null,
+                ]);
+            }
         });
+    }
+
+    private function normalizeRowKeys(array $row): array
+    {
+        $out = [];
+        foreach ($row as $k => $v) {
+            $key = strtolower(trim((string)$k));
+            $key = preg_replace('/[\s\-]+/', '_', $key);
+            $out[$key] = $v;
+        }
+        return $out;
     }
 }

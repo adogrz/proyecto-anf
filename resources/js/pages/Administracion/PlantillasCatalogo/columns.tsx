@@ -1,6 +1,6 @@
 
 import { ColumnDef } from "@tanstack/react-table"
-import { MoreHorizontal, Pencil, Trash2, Eye } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2, Eye, FileCog } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -59,7 +59,12 @@ export const columns: ColumnDef<Plantilla>[] = [
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
             <DropdownMenuItem asChild>
-              <Link href={route('plantillas-catalogo.show', plantilla.id)}><Eye className="mr-2 h-4 w-4" /> Ver</Link>
+              <Link href={route('cuentas-base.index', { plantilla: plantilla.id })}>
+                <FileCog className="mr-2 h-4 w-4" /> Administrar Cuentas
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href={route('plantillas-catalogo.show', { plantillas_catalogo: plantilla.id })}><Eye className="mr-2 h-4 w-4" /> Ver</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
               <Link href={route('plantillas-catalogo.edit', plantilla.id)}><Pencil className="mr-2 h-4 w-4" /> Editar</Link>

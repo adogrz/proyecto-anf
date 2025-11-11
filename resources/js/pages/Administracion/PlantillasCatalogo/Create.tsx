@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import AppLayout from '@/layouts/app-layout';
@@ -7,8 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import InputError from '@/components/input-error';
+import { type BreadcrumbItem } from '@/types';
+import { route } from 'ziggy-js';
 
-export default function PlantillasCatalogoCreate() {
+const BREADCRUMBS: BreadcrumbItem[] = [
+    { title: 'Home', href: route('dashboard') },
+    { title: 'Plantillas de Catálogo', href: route('plantillas-catalogo.index') },
+    { title: 'Crear', href: route('plantillas-catalogo.create') },
+];
+
+export default function PlantillasCatalogoCreate({ breadcrumbs }: CreateProps) {
     const { data, setData, post, processing, errors } = useForm({
         nombre: '',
         descripcion: '',
@@ -20,7 +29,7 @@ export default function PlantillasCatalogoCreate() {
     };
 
     return (
-        <AppLayout>
+        <AppLayout breadcrumbs={BREADCRUMBS}>
             <Head title="Crear Plantilla de Catálogo" />
             <div className="container mx-auto py-8 px-4 sm:px-6 lg:px-8">
                 <Card className="max-w-2xl mx-auto">

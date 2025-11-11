@@ -12,7 +12,9 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { FileUp, AlertCircle } from 'lucide-react';
+import { FileUp, AlertCircle, AlertTriangle, FileDown } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 
 // --- Componente para el Paso 1 ---
 interface DefineEmpresaStepProps {
@@ -53,13 +55,23 @@ const DefineEmpresaStep: React.FC<DefineEmpresaStepProps> = ({ empresas, sectore
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('handleCreateSubmit called'); // Debug log
     post(route('empresas.store'), {
       onSuccess: (page) => {
-        const newEmpresa = (page.props as any).jetstream.flash.empresa as Empresa;
+        console.log('onSuccess callback executed'); // Debug log
+        console.log('page.props:', page.props); // Debug log
+        console.log('page.props.flash:', (page.props as any).flash); // Debug log
+        const newEmpresa = (page.props as any).flash.empresa as Empresa;
         if (newEmpresa) {
+          console.log('newEmpresa found:', newEmpresa); // Debug log
           onEmpresaSelected(newEmpresa, 'goToStep2'); // New companies always go to step 2
+        } else {
+          console.log('newEmpresa not found in flash messages.'); // Debug log
         }
       },
+      onError: (errors) => { // Add onError callback for debugging
+        console.error('onError callback executed. Errors:', errors);
+      }
     });
   };
 
@@ -161,26 +173,344 @@ const DefineEmpresaStep: React.FC<DefineEmpresaStepProps> = ({ empresas, sectore
   );
 };
 
-// --- Componente para el Paso 2 ---
+// --- Componente para el Paso 2 (Cargar Catálogo Base) ---
+interface CargarCatalogoBaseStepProps {
+  empresa: Empresa;
+  onCatalogoBaseCargado: () => void;
+  onBack: () => void;
+}
+
+const CargarCatalogoBaseStep: React.FC<CargarCatalogoBaseStepProps> = ({ empresa, onCatalogoBaseCargado, onBack }) => {
+  const [archivo, setArchivo] = React.useState<File | null>(null);
+  const [previewData, setPreviewData] = React.useState<any[]>([]);
+  const [isProcessing, setIsProcessing] = React.useState(false);
+  const [uploadProgress, setUploadProgress] = React.useState(0);
+  const [isDragging, setIsDragging] = React.useState(false);
+  const [errors, setErrors] = React.useState<string[]>([]);
+  const [warnings, setWarnings] = React.useState<string[]>([]);
+
+  // State for filters and pagination
+  const [nameFilter, setNameFilter] = React.useState('');
+  const [natureFilter, setNatureFilter] = React.useState('all');
+  const [typeFilter, setTypeFilter] = React.useState('all');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 10;
+
+  const handleFileSelect = (file: File | null) => {
+    if (file) {
+        const allowedExtensions = /(\.xlsx|\.xls|\.csv)$/i;
+        if (!allowedExtensions.exec(file.name)) {
+            toast.error('Tipo de archivo no válido', { 
+                description: 'Por favor, seleccione un archivo de Excel (.xlsx, .xls) o CSV (.csv).',
+            });
+            return;
+        }
+        setArchivo(file);
+        setErrors([]);
+        setWarnings([]);
+        setPreviewData([]);
+        setCurrentPage(1);
+    }
+  };
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+        handleFileSelect(droppedFile);
+    }
+  };
+
+  const handlePreview = async () => {
+    if (!archivo) {
+        toast.warning('Por favor, seleccione un archivo primero.');
+        return;
+    }
+    setIsProcessing(true);
+    setUploadProgress(0);
+    setErrors([]);
+    setWarnings([]);
+    setPreviewData([]);
+    toast.info('Previsualizando catálogo base...');
+
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    
+    try {
+      const response = await axios.post(route('importacion.previsualizarCatalogoBase'), formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          setUploadProgress(percentCompleted);
+        }
+      });
+
+      const { datos, errores, warnings: backendWarnings } = response.data;
+
+      if (errores && errores.length > 0) {
+        setErrors(errores);
+        toast.error('Se encontraron errores en el archivo del catálogo base.', { description: 'Revise el registro de errores para más detalles.' });
+      }
+
+      if (backendWarnings && backendWarnings.length > 0) {
+        setWarnings(backendWarnings);
+        toast.warning('Se encontraron advertencias en el archivo del catálogo base.', { description: 'Revise el registro de advertencias para más detalles.' });
+      }
+
+      if (datos && datos.length > 0) {
+        setPreviewData(datos);
+        if (!errores || errores.length === 0) {
+            toast.success('Archivo previsualizado. Revise los datos inferidos.');
+        } else {
+            toast.warning('Archivo previsualizado con algunos errores. Revise los resultados.');
+        }
+      } else {
+        if (!errores || errores.length === 0) {
+            toast.warning('El archivo se procesó, pero no se encontraron cuentas para previsualizar.', { description: 'Puede que el archivo esté vacío o las cabeceras no sean correctas.' });
+        }
+      }
+    } catch (error: any) {
+        console.error(error);
+        toast.error('Ocurrió un error inesperado al previsualizar el archivo.');
+    }
+    finally { setIsProcessing(false); }
+  };
+
+  const handleImport = async () => {
+    if (!archivo) {
+        toast.warning('Por favor, seleccione un archivo primero.');
+        return;
+    }
+    setIsProcessing(true);
+    setUploadProgress(0);
+    toast.info('Importando catálogo base...');
+
+    const formData = new FormData();
+    formData.append('archivo', archivo);
+    formData.append('plantilla_catalogo_id', empresa.plantilla_catalogo_id.toString());
+    formData.append('empresa_id', empresa.id.toString()); // Add this line
+
+    try {
+      const response = await axios.post(route('importacion.importarCatalogoBase'), formData, {
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+          setUploadProgress(percentCompleted);
+        }
+      });
+
+      if (response.data.warnings && response.data.warnings.length > 0) {
+        setWarnings(response.data.warnings);
+        toast.warning('Catálogo importado con advertencias.', { description: 'Algunas cuentas no se pudieron eliminar porque están en uso.' });
+      } else {
+        toast.success('Catálogo base importado con éxito.');
+      }
+      
+      onCatalogoBaseCargado();
+    } catch (error: any) {
+        console.error(error);
+        toast.error(error.response?.data?.message || 'Ocurrió un error al importar el catálogo base.');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  // Filtering and pagination logic
+  const filteredData = previewData.filter(item => {
+    return (
+      (nameFilter === '' || item.nombre.toLowerCase().includes(nameFilter.toLowerCase())) &&
+      (natureFilter === 'all' || item.naturaleza === natureFilter) &&
+      (typeFilter === 'all' || item.tipo_cuenta === typeFilter)
+    );
+  });
+
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  const NatureBadge = ({ nature }: { nature: string }) => {
+    const natureClass = nature === 'DEUDORA' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800';
+    return <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${natureClass}`}>{nature}</span>;
+  };
+
+  const TypeBadge = ({ type }: { type: string }) => {
+    const typeClass = type === 'AGRUPACION' ? 'bg-yellow-100 text-yellow-800' : 'bg-purple-100 text-purple-800';
+    return <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${typeClass}`}>{type}</span>;
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Paso 2: Cargar Catálogo Base de Cuentas</CardTitle>
+        <CardDescription>Arrastre y suelte su catálogo base en formato Excel (.xlsx, .xls, .csv) en el área designada o haga clic para seleccionarlo. Este catálogo definirá la estructura estándar de cuentas para la empresa.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center gap-4 flex-wrap">
+            <Label 
+                htmlFor="catalogo-base-file-input" 
+                className={`flex-1 flex items-center justify-center w-full p-6 border-2 border-dashed rounded-md cursor-pointer transition-colors 
+                    ${isDragging ? 'border-primary bg-primary/10' : 'hover:bg-muted/50'}`}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+            >
+                <div className="text-center">
+                    <FileUp className={`w-10 h-10 mx-auto mb-2 ${isDragging ? 'text-primary' : 'text-muted-foreground'}`} />
+                    <p className="font-semibold">{archivo ? archivo.name : 'Arrastre un archivo aquí o haga clic para seleccionar'}</p>
+                    <p className="text-xs text-muted-foreground">Columnas requeridas: codigo_cuenta, nombre_cuenta</p>
+                </div>
+            </Label>
+            <Input 
+                id="catalogo-base-file-input" 
+                type="file" 
+                className="hidden" 
+                onChange={(e) => handleFileSelect(e.target.files ? e.target.files[0] : null)} 
+                accept=".xlsx,.xls,.csv" 
+            />
+          <Button onClick={handlePreview} disabled={!archivo || isProcessing} size="lg">
+            {isProcessing ? 'Previsualizando...' : 'Previsualizar Catálogo'}
+          </Button>
+          <Button variant="download" size="lg" asChild>
+            <a href={route('importacion.descargarPlantilla', { tipo: 'catalogo' })}>
+              <FileDown className="mr-2 h-4 w-4" /> Descargar Plantilla
+            </a>
+          </Button>
+        </div>
+
+        {isProcessing && uploadProgress > 0 && <Progress value={uploadProgress} className="w-full" />}
+
+        {errors.length > 0 && (
+            <div className="space-y-2 pt-4">
+                <Label className="text-destructive flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4" /> Registro de Errores de Catálogo Base
+                </Label>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 max-h-40 overflow-y-auto">
+                    <pre className="text-sm text-destructive whitespace-pre-wrap font-mono">
+                        {errors.map((error, i) => (
+                            <p key={i} className="flex items-start">
+                                <span className="mr-2 text-red-400">-&gt;</span>
+                                <span>{error}</span>
+                            </p>
+                        ))}
+                    </pre>
+                </div>
+            </div>
+        )}
+
+        {warnings.length > 0 && (
+            <div className="space-y-2 pt-4">
+                <Label className="text-orange-500 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Registro de Advertencias de Catálogo Base
+                </Label>
+                <div className="bg-yellow-100/10 border border-yellow-200/20 rounded-md p-3 max-h-40 overflow-y-auto">
+                    <pre className="text-sm text-yellow-700 whitespace-pre-wrap font-mono">
+                        {warnings.map((warning, i) => (
+                            <p key={i} className="flex items-start">
+                                <span className="mr-2 text-yellow-500">-&gt;</span>
+                                <span>{warning}</span>
+                            </p>
+                        ))}
+                    </pre>
+                </div>
+            </div>
+        )}
+
+        {previewData.length > 0 && (
+          <div>
+            <h3 className="text-md font-medium mb-4">Previsualización del Catálogo Base</h3>
+            <div className="flex items-center gap-4 mb-4">
+                <Input placeholder="Filtrar por nombre..." value={nameFilter} onChange={e => setNameFilter(e.target.value)} className="max-w-sm" />
+                <div className="flex items-center space-x-2">
+                    <Label htmlFor="nature-filter">Naturaleza:</Label>
+                    <Select value={natureFilter} onValueChange={setNatureFilter}>
+                        <SelectTrigger id="nature-filter" className="w-[180px]">
+                            <SelectValue placeholder="Filtrar por naturaleza" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todas</SelectItem>
+                            <SelectItem value="DEUDORA">Deudora</SelectItem>
+                            <SelectItem value="ACREEDORA">Acreedora</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <Label htmlFor="type-filter">Tipo:</Label>
+                    <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger id="type-filter" className="w-[180px]">
+                            <SelectValue placeholder="Filtrar por tipo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Todos</SelectItem>
+                            <SelectItem value="AGRUPACION">Agrupación</SelectItem>
+                            <SelectItem value="DETALLE">Detalle</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+            </div>
+            <div className="border rounded-md">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Naturaleza (Inferida)</TableHead>
+                    <TableHead>Tipo (Inferido)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedData.map((cuenta, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{cuenta.codigo}</TableCell>
+                      <TableCell>{cuenta.nombre}</TableCell>
+                      <TableCell><NatureBadge nature={cuenta.naturaleza} /></TableCell>
+                      <TableCell><TypeBadge type={cuenta.tipo_cuenta} /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="flex items-center justify-end space-x-2 py-4">
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
+                <span className="text-sm">Página {currentPage} de {totalPages}</span>
+                <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
+            </div>
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex justify-between">
+        <Button variant="outline" onClick={onBack}>Atrás</Button>
+        <Button onClick={handleImport} disabled={isProcessing || previewData.length === 0 || errors.length > 0}>
+          {isProcessing ? 'Importando...' : 'Confirmar e Importar Catálogo Base'}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
+};
+
+// --- Componente para el Paso 2 (Mapeo de Catálogo Existente) ---
 interface MapeoCatalogoStepProps {
   empresa: Empresa;
   cuentasBase: CuentaBase[];
   onMapeoCompleto: () => void;
   onBack: () => void;
 }
-
-import { toast } from 'sonner';
-
-// ... (previous imports) ...
-
-// --- Componente para el Paso 2 ---
-interface MapeoCatalogoStepProps {
-  empresa: Empresa;
-  cuentasBase: CuentaBase[];
-  onMapeoCompleto: () => void;
-  onBack: () => void;
-}
-
 const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasBase, onMapeoCompleto, onBack }) => {
   const [archivo, setArchivo] = React.useState<File | null>(null);
   const [cuentas, setCuentas] = React.useState<any[]>([]);
@@ -188,6 +518,7 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
   const [uploadProgress, setUploadProgress] = React.useState(0);
   const [isDragging, setIsDragging] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
+  const [warnings, setWarnings] = React.useState<string[]>([]);
 
   const handleFileSelect = (file: File | null) => {
     if (file) {
@@ -251,11 +582,16 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
         }
       });
 
-      const { datos, errores } = response.data;
+      const { datos, errores, warnings: backendWarnings } = response.data;
 
       if (errores && errores.length > 0) {
         setErrors(errores);
         toast.error('Se encontraron errores en el archivo del catálogo.', { description: 'Revise el registro de errores para más detalles.' });
+      }
+
+      if (backendWarnings && backendWarnings.length > 0) {
+        setWarnings(backendWarnings);
+        toast.warning('Se encontraron advertencias en el archivo del catálogo.', { description: 'Revise el registro de advertencias para más detalles.' });
       }
 
       if (datos && datos.length > 0) {
@@ -279,7 +615,11 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
 
   const handleMapeoChange = (index: number, cuentaBaseId: string) => {
     const nuevasCuentas = [...cuentas];
-    nuevasCuentas[index].cuenta_base_id = cuentaBaseId ? parseInt(cuentaBaseId) : null;
+    if (cuentaBaseId === 'null') {
+      nuevasCuentas[index].cuenta_base_id = null;
+    } else {
+      nuevasCuentas[index].cuenta_base_id = parseInt(cuentaBaseId);
+    }
     setCuentas(nuevasCuentas);
   };
 
@@ -339,13 +679,20 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
 
         {errors.length > 0 && (
             <div className="space-y-2 pt-4">
-                <Label className="text-destructive">Registro de Errores de Catálogo</Label>
-                <div className="bg-destructive/10 border border-destructive/20 rounded-md p-3 max-h-40 overflow-y-auto">
-                    <pre className="text-sm text-destructive whitespace-pre-wrap font-mono">
-                        {errors.map((error, i) => (
+            </div>
+        )}
+
+        {warnings.length > 0 && (
+            <div className="space-y-2 pt-4">
+                <Label className="text-orange-500 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" /> Registro de Advertencias de Catálogo
+                </Label>
+                <div className="bg-yellow-100/10 border border-yellow-200/20 rounded-md p-3 max-h-40 overflow-y-auto">
+                    <pre className="text-sm text-yellow-700 whitespace-pre-wrap font-mono">
+                        {warnings.map((warning, i) => (
                             <p key={i} className="flex items-start">
-                                <span className="mr-2 text-red-400">-&gt;</span>
-                                <span>{error}</span>
+                                <span className="mr-2 text-yellow-500">-&gt;</span>
+                                <span>{warning}</span>
                             </p>
                         ))}
                     </pre>
@@ -369,12 +716,12 @@ const MapeoCatalogoStep: React.FC<MapeoCatalogoStepProps> = ({ empresa, cuentasB
                     <TableRow key={index}>
                       <TableCell className="font-medium">{cuenta.codigo_cuenta} - {cuenta.nombre_cuenta}</TableCell>
                       <TableCell>
-                        <Select onValueChange={(value) => handleMapeoChange(index, value)} defaultValue={cuenta.cuenta_base_id?.toString() || ''}>
+                        <Select onValueChange={(value) => handleMapeoChange(index, value)} defaultValue={cuenta.cuenta_base_id?.toString() || 'null'}>
                           <SelectTrigger>
                             <SelectValue placeholder="-- No asignar --" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">-- No asignar --</SelectItem>
+                            <SelectItem value="null">-- No asignar --</SelectItem>
                             {cuentasBase.map(cb => (<SelectItem key={cb.id} value={cb.id.toString()}>{cb.nombre}</SelectItem>))}
                           </SelectContent>
                         </Select>
@@ -458,14 +805,29 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
     formData.append('tipo_estado', tipoEstado);
 
     try {
-      const response = await axios.post(route('importacion.previsualizar'), formData, {
+      const response = await axios.post(route('importacion.previsualizarEstadoFinanciero'), formData, {
         onUploadProgress: (progressEvent) => {
           const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
           setUploadProgress(percentCompleted);
         }
       });
-      toast.success('Validación completada. Revise la previsualización.');
-      onPreview({ data: response.data, anio: parseInt(anio), tipoEstado });
+
+      // Check for errors returned from the backend
+      if (response.data.errores && response.data.errores.length > 0) {
+        setErrors(response.data.errores);
+        toast.error('Se encontraron errores en el archivo.', { description: 'Por favor, revise el registro de errores a continuación.' });
+        // Do NOT proceed to step 4 if there are errors
+        return;
+      }
+
+      // Check if there's actual data to preview
+      if (response.data.datos && response.data.datos.length > 0) {
+        toast.success('Validación completada. Revise la previsualización.');
+        onPreview({ data: response.data.datos, anio: parseInt(anio), tipoEstado }); // Pass only the 'datos' array
+      } else {
+        toast.warning('El archivo se procesó, pero no se encontraron datos válidos para previsualizar.', { description: 'Puede que el archivo esté vacío o las cabeceras no sean correctas.' });
+        // Do NOT proceed to step 4 if no valid data
+      }
     } catch (error: any) {
       if (error.response && error.response.status === 422 && error.response.data.errors) {
         const errorMessages = Array.isArray(error.response.data.errors) ? error.response.data.errors : Object.values(error.response.data.errors).flat();
@@ -522,6 +884,19 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
             <Input id="estado-file-input" type="file" className="hidden" onChange={e => handleFileChange(e.target.files ? e.target.files[0] : null)} accept=".xlsx,.xls,.csv" />
         </div>
 
+        <div className="flex justify-end gap-2 flex-wrap">
+            <Button variant="download" asChild>
+                <a href={route('importacion.descargarPlantilla', { tipo: 'balance' })}>
+                    <FileDown className="mr-2 h-4 w-4" /> Plantilla Balance General
+                </a>
+            </Button>
+            <Button variant="download" asChild>
+                <a href={route('importacion.descargarPlantilla', { tipo: 'resultados' })}>
+                    <FileDown className="mr-2 h-4 w-4" /> Plantilla Estado de Resultados
+                </a>
+            </Button>
+        </div>
+
         {isProcessing && <Progress value={uploadProgress} className="w-full" />}
 
         {errors.length > 0 && (
@@ -551,22 +926,97 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
 };
 
 // --- Componente para el Paso 4 ---
+import ImportSuccessModal from '@/components/import/ImportSuccessModal'; // Import the new modal component
+
 const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack: () => void; }> = ({ previewData, empresaId, onBack }) => {
   const [isSaving, setIsSaving] = React.useState(false);
+  const [nameFilter, setNameFilter] = React.useState('');
+  const [statusFilter, setStatusFilter] = React.useState('all');
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 10; // You can adjust this value
 
-  const handleConfirm = () => {
+  // State for the success modal
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState('');
+  const [importedEmpresaId, setImportedEmpresaId] = React.useState<number | null>(null);
+
+
+  const handleConfirm = async () => { // Make handleConfirm async
+    console.log('handleConfirm called');
     setIsSaving(true);
     const postData = {
       empresa_id: empresaId,
       anio: previewData.anio,
       tipo_estado: previewData.tipoEstado,
-      detalles: previewData.data,
+      detalles: previewData.data.filter((item: any) => item.status !== 'error' && item.cuenta_base_id !== null && item.cuenta_base_id !== undefined),
     };
+    console.log('postData for saving:', postData);
 
-    router.post(route('importacion.guardarEstadoFinanciero'), postData, {
-      onFinish: () => setIsSaving(false),
-    });
+    // --- NEW: Frontend pre-check for empty detalles ---
+    if (postData.detalles.length === 0) {
+      setIsSaving(false);
+      toast.warning('No hay cuentas válidas para guardar.', {
+        description: 'Todas las cuentas fueron filtradas debido a errores o falta de mapeo. Por favor, revise la previsualización.',
+      });
+      return; // Stop the function here
+    }
+    // --- END NEW ---
+
+    try {
+      const response = await axios.post(route('importacion.guardarEstadoFinanciero'), postData); // Use axios.post
+
+      setIsSaving(false);
+      console.log('axios.post success response:', response.data);
+
+      // Set state to show the success modal
+      setSuccessMessage(response.data.message || 'Estado financiero guardado con éxito.');
+      setImportedEmpresaId(response.data.empresa_id || null);
+      setShowSuccessModal(true);
+
+    } catch (error: any) {
+      setIsSaving(false);
+      console.error('axios.post error response:', error);
+
+      let errorMessage = 'Ocurrió un error inesperado al guardar el estado financiero.';
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      toast.error('Error al guardar el estado financiero.', { description: errorMessage });
+    }
+    console.log('axios.post initiated (or completed)');
   };
+
+  // Filtering Logic
+  const filteredData = React.useMemo(() => {
+    if (!Array.isArray(previewData.data)) return [];
+
+    return previewData.data.filter((item: any) => {
+      const matchesName = nameFilter === '' || 
+                          item.codigo_cuenta.toLowerCase().includes(nameFilter.toLowerCase()) ||
+                          item.nombre_cuenta.toLowerCase().includes(nameFilter.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
+
+      return matchesName && matchesStatus;
+    });
+  }, [previewData.data, nameFilter, statusFilter]);
+
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const paginatedData = filteredData.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [nameFilter, statusFilter]);
+
+  const isConfirmButtonDisabled = isSaving || previewData.data.some((item: any) => item.status === 'error');
+  console.log('Confirm button disabled state:', isConfirmButtonDisabled, 'isSaving:', isSaving, 'hasErrors:', previewData.data.some((item: any) => item.status === 'error'));
 
   return (
     <Card>
@@ -575,38 +1025,119 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
         <CardDescription>Revise los datos interpretados del estado financiero antes de guardarlos permanentemente en el sistema.</CardDescription>
       </CardHeader>
       <CardContent>
+        {/* Filter Controls */}
+        <div className="flex items-center gap-4 mb-4">
+            <Input 
+                placeholder="Filtrar por código o nombre..." 
+                value={nameFilter} 
+                onChange={e => setNameFilter(e.target.value)} 
+                className="max-w-sm" 
+            />
+            <div className="flex items-center space-x-2">
+                <Label htmlFor="status-filter">Estado:</Label>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger id="status-filter" className="w-[180px]">
+                        <SelectValue placeholder="Filtrar por estado" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="valid">Válido</SelectItem>
+                        <SelectItem value="warning">Advertencia</SelectItem>
+                        <SelectItem value="error">Error</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
+        </div>
+
         <div className="border rounded-md">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Cuenta (Mapeada a Cuenta Base)</TableHead>
                 <TableHead className="text-right">Valor</TableHead>
+                <TableHead className="text-center">Estado</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {previewData.data.map((item: any, index: number) => (
-                <TableRow key={index}>
-                  <TableCell>
-                    <div className="font-medium">{item.nombre_cuenta}</div>
-                    <div className="text-sm text-muted-foreground">Mapeada a: {item.cuenta_base_nombre}</div>
+              {paginatedData.length > 0 ? (
+                paginatedData.map((item: any, index: number) => {
+                  let rowClass = '';
+                  let statusIcon = null;
+                  let statusText = '';
+
+                  if (item.status === 'error') {
+                    rowClass = 'bg-red-100/50 dark:bg-red-900/30';
+                    statusIcon = <AlertCircle className="h-4 w-4 text-red-600" />;
+                    statusText = 'Error';
+                  } else if (item.status === 'warning') {
+                    rowClass = 'bg-yellow-100/50 dark:bg-yellow-900/30';
+                    statusIcon = <AlertTriangle className="h-4 w-4 text-yellow-600" />;
+                    statusText = 'Advertencia';
+                  } else {
+                    statusText = 'Válido';
+                  }
+
+                  return (
+                    <TableRow key={index} className={rowClass}>
+                      <TableCell>
+                        <div className="font-medium">{item.codigo_cuenta} - {item.nombre_cuenta}</div>
+                        <div className="text-sm text-muted-foreground">Mapeada a: {item.cuenta_base_nombre}</div>
+                        {item.row_errors && item.row_errors.length > 0 && (
+                          <div className="text-xs text-red-600 mt-1">
+                            {item.row_errors.map((err: string, i: number) => <p key={i}>- {err}</p>)}
+                          </div>
+                        )}
+                        {item.row_warnings && item.row_warnings.length > 0 && (
+                          <div className="text-xs text-yellow-600 mt-1">
+                            {item.row_warnings.map((warn: string, i: number) => <p key={i}>- {warn}</p>)}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.saldo)}</TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-1">
+                          {item.status === 'error' && <Badge variant="destructive">{statusIcon} {statusText}</Badge>}
+                          {item.status === 'warning' && <Badge variant="yellow">{statusIcon} {statusText}</Badge>}
+                          {item.status === 'valid' && <Badge variant="green">{statusText}</Badge>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    No se encontraron resultados.
                   </TableCell>
-                  <TableCell className="text-right">{new Intl.NumberFormat('es-SV', { style: 'currency', currency: 'USD' }).format(item.valor)}</TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex items-center justify-end space-x-2 py-4">
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Anterior</Button>
+            <span className="text-sm">Página {currentPage} de {totalPages}</span>
+            <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Siguiente</Button>
         </div>
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button variant="outline" onClick={onBack}>Atrás</Button>
-        <Button onClick={handleConfirm} disabled={isSaving}>
+        <Button onClick={handleConfirm} disabled={isConfirmButtonDisabled}>
           {isSaving ? 'Guardando...' : 'Confirmar y Guardar'}
         </Button>
       </CardFooter>
+      {/* Render the success modal */}
+      <ImportSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        message={successMessage}
+        empresaId={importedEmpresaId}
+      />
     </Card>
   );
 };
-
 
 // --- Componente Principal del Asistente ---
 const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empresa[], sectores: Sector[], plantillas: PlantillaCatalogo[] }) => {
@@ -614,13 +1145,56 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
   const [empresa, setEmpresa] = React.useState<Empresa | null>(null);
   const [previewData, setPreviewData] = React.useState<any>(null);
 
+  // Dynamic Breadcrumbs
+  const getBreadcrumbs = (): BreadcrumbItem[] => {
+    const baseBreadcrumbs: BreadcrumbItem[] = [
+      { title: 'Home', href: route('dashboard') },
+      { title: 'Importación', href: route('importacion.wizard') }, // Assuming a route for the wizard itself
+    ];
+
+    if (step === 1) {
+      return [...baseBreadcrumbs, { title: 'Definir Empresa', href: route('importacion.wizard') }];
+    }
+
+    if (empresa) {
+      baseBreadcrumbs.push({ title: empresa.nombre, href: route('empresas.show', empresa.id) }); // Link to company show page
+    }
+
+    switch (step) {
+      case 2:
+        return [...baseBreadcrumbs, { title: 'Catálogo Base', href: route('importacion.wizard') }];
+      case 3:
+        return [...baseBreadcrumbs, { title: 'Estado Financiero', href: route('importacion.wizard') }];
+      case 4:
+        return [...baseBreadcrumbs, { title: 'Previsualizar', href: route('importacion.wizard') }];
+      default:
+        return baseBreadcrumbs;
+    }
+  };
+
   const handleEmpresaSelected = (selectedEmpresa: Empresa, action: 'goToStep2' | 'goToStep3') => {
     setEmpresa(selectedEmpresa);
-    if (action === 'goToStep2') {
-      setStep(2);
-    } else if (action === 'goToStep3') {
+    // Determine if the company has a catalog already
+    const plantilla = plantillas.find(p => p.id === selectedEmpresa.plantilla_catalogo_id);
+    const hasCuentasBase = plantilla && plantilla.cuentasBase && plantilla.cuentasBase.length > 0;
+
+    if (action === 'goToStep2') { // This action is triggered when a new company is created or an existing one needs catalog setup
+      if (hasCuentasBase) {
+        setStep(2); // Go to MapeoCatalogoStep if catalog exists
+      } else {
+        setStep(2); // Go to CargarCatalogoBaseStep if no catalog
+      }
+    } else if (action === 'goToStep3') { // This action is triggered when an existing company has a catalog and wants to import financial statements
       setStep(3);
     }
+  };
+
+  const handleCatalogoBaseCargado = () => {
+    // After base catalog is loaded, we should refresh the plantillas prop to get the new cuentasBase
+    // and then proceed to the next step (CargarEstadoFinancieroStep)
+    router.reload({ only: ['plantillas'], onSuccess: () => {
+        setStep(3);
+    }});
   };
 
   const handleMapeoCompleto = () => setStep(3);
@@ -639,10 +1213,14 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
         }
         // If we are on step 3, we go back to step 1 to re-evaluate the company
         if (step === 3) {
-            setStep(1);
+            // Check if the company has a catalog. If so, go to MapeoCatalogoStep (Step 2).
+            // Otherwise, go to CargarCatalogoBaseStep (also Step 2, but different component).
+            const plantilla = plantillas.find(p => p.id === empresa?.plantilla_catalogo_id);
+            const hasCuentasBase = plantilla && plantilla.cuentasBase && plantilla.cuentasBase.length > 0;
+            setStep(2);
             return;
         }
-        // If we are on step 2, we go back to step 1
+        // If we are on step 2 (either CargarCatalogoBaseStep or MapeoCatalogoStep), we go back to step 1
         if (step === 2) {
             setStep(1);
             return;
@@ -657,13 +1235,26 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
   };
 
   const renderStep = () => {
+    if (step === 1) {
+      return <DefineEmpresaStep empresas={empresas} sectores={sectores} onEmpresaSelected={handleEmpresaSelected} />;
+    }
+
+    if (!empresa) {
+      return <p>Por favor, regrese al paso 1 y seleccione una empresa.</p>;
+    }
+
+    const plantilla = plantillas.find(p => p.id === empresa.plantilla_catalogo_id);
+    const hasCuentasBase = plantilla && plantilla.cuentasBase && plantilla.cuentasBase.length > 0;
+
     switch (step) {
-      case 1:
-        return <DefineEmpresaStep empresas={empresas} sectores={sectores} onEmpresaSelected={handleEmpresaSelected} />;
       case 2:
-        return empresa ? <MapeoCatalogoStep empresa={empresa} cuentasBase={getCuentasBaseParaEmpresa()} onMapeoCompleto={handleMapeoCompleto} onBack={handleBack} /> : <p>Por favor, regrese y seleccione una empresa.</p>;
+        if (hasCuentasBase) {
+            return <MapeoCatalogoStep empresa={empresa} cuentasBase={getCuentasBaseParaEmpresa()} onMapeoCompleto={handleMapeoCompleto} onBack={handleBack} />;
+        } else {
+            return <CargarCatalogoBaseStep empresa={empresa} onCatalogoBaseCargado={handleCatalogoBaseCargado} onBack={handleBack} />;
+        }
       case 3:
-        return empresa ? <CargarEstadoFinancieroStep empresa={empresa} onPreview={handlePreview} onBack={handleBack} /> : <p>Por favor, regrese y seleccione una empresa.</p>;
+        return <CargarEstadoFinancieroStep empresa={empresa} onPreview={handlePreview} onBack={handleBack} />;
       case 4:
         return previewData && empresa ? <PrevisualizarStep previewData={previewData} empresaId={empresa.id} onBack={handleBack} /> : <p>No hay datos para previsualizar.</p>;
       default:
@@ -673,13 +1264,13 @@ const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empres
 
   const steps = [
     { id: 1, name: 'Empresa' },
-    { id: 2, name: 'Catálogo' },
+    { id: 2, name: 'Catálogo Base' }, // Updated name for clarity
     { id: 3, name: 'Estado Financiero' },
     { id: 4, name: 'Confirmar' },
   ];
 
   return (
-    <AppLayout>
+    <AppLayout breadcrumbs={getBreadcrumbs()}>
       <div className="p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="mb-8">
