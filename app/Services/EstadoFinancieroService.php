@@ -196,17 +196,35 @@ class EstadoFinancieroService
                 'tipo_estado' => $tipoEstado,
             ]);
 
-            foreach ($detalles as $detalle) {
+            foreach ($detalles as $index => $detalle) {
                 $fechaParaGuardar = null;
                 if ($tipoEstado === 'balance_general') {
                     $fechaParaGuardar = "{$anio}-12-31";
                 }
 
+                // Find the CatalogoCuenta for the given empresa_id and codigo_cuenta from the uploaded file
+                $catalogoCuenta = \App\Models\CatalogoCuenta::where('empresa_id', $empresaId)
+                                                            ->where('codigo_cuenta', $detalle['codigo_cuenta']) // Use codigo_cuenta from the detail
+                                                            ->first();
+
+                if (!$catalogoCuenta) {
+                    // This is a critical error. If the code from the Excel was validated against CuentaBase,
+                    // but there's no corresponding CatalogoCuenta, it means the mapping is incomplete or incorrect.
+                    Log::error('EstadoFinancieroService: No se encontró CatalogoCuenta para guardar DetalleEstado. La cuenta del archivo no está mapeada para esta empresa.', [
+                        'empresa_id' => $empresaId,
+                        'codigo_cuenta_from_excel' => $detalle['codigo_cuenta'],
+                        'cuenta_base_id_from_preview' => $detalle['cuenta_base_id'], // For debugging
+                        'detalle_index' => $index
+                    ]);
+                    // Throw an exception to roll back the transaction and provide feedback
+                    throw new \Exception("La cuenta '{$detalle['codigo_cuenta']}' del archivo no está mapeada en el catálogo de la empresa.");
+                }
+
                 DetalleEstado::create([
                     'estado_financiero_id' => $estadoFinanciero->id,
-                    'cuenta_base_id' => $detalle['cuenta_base_id'],
-                    'codigo_cuenta' => $detalle['codigo_cuenta'],
-                    'saldo' => $detalle['saldo'],
+                    'catalogo_cuenta_id' => $catalogoCuenta->id, // Use catalogo_cuenta_id
+                    'codigo_cuenta' => $detalle['codigo_cuenta'], // This is the company's specific code
+                    'valor' => $detalle['saldo'], // Use 'valor' instead of 'saldo'
                     'fecha' => $fechaParaGuardar,
                     'periodo' => $detalle['periodo'] ?? null,
                 ]);

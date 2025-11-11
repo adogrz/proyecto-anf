@@ -224,7 +224,9 @@ class ImportacionController extends Controller
 
     public function guardarMapeo(Request $request)
     {
-        $request->validate([
+        Log::debug('ImportacionController: Inicia guardarMapeo'); // Add this line
+
+        $validatedData = $request->validate([ // Store validated data
             'empresa_id' => 'required|exists:empresas,id',
             'cuentas' => 'required|array',
             'cuentas.*.codigo_cuenta' => 'required|string|max:255',
@@ -232,12 +234,17 @@ class ImportacionController extends Controller
             'cuentas.*.cuenta_base_id' => 'nullable|exists:cuentas_base,id',
         ]);
 
-        $empresaId = $request->input('empresa_id');
-        $cuentas = $request->input('cuentas');
+        try { // Add try block
+            $this->catalogoService->guardarMapeo($validatedData); // Pass the validated data array
 
-        $this->catalogoService->guardarMapeo($empresaId, $cuentas);
-
-        return response()->json(['message' => 'Mapeo guardado con éxito.']);
+            return response()->json(['message' => 'Mapeo guardado con éxito.']);
+        } catch (\Exception $e) { // Add catch block
+            Log::error('ImportacionController: Error al guardar mapeo: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'message' => 'Error al guardar el mapeo: ' . $e->getMessage(),
+                'server_error' => $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function previsualizarCatalogoBase(Request $request)
@@ -266,12 +273,15 @@ class ImportacionController extends Controller
         $request->validate([
             'archivo' => 'required|file|mimes:xlsx,xls,csv|max:10240',
             'plantilla_catalogo_id' => 'required|exists:plantillas_catalogo,id',
+            'empresa_id' => 'required|exists:empresas,id', // <--- Add this validation rule
         ]);
 
         try {
             $file = $request->file('archivo');
             $plantillaId = $request->input('plantilla_catalogo_id');
-            $result = $this->catalogoService->importarCuentasBase($file, $plantillaId);
+            $empresaId = $request->input('empresa_id'); // <--- Get empresa_id from request
+
+            $result = $this->catalogoService->importarCuentasBase($file, $plantillaId, $empresaId); // <--- Pass empresaId
 
             return response()->json([
                 'message' => 'Catálogo base importado con éxito.',
@@ -308,13 +318,21 @@ class ImportacionController extends Controller
         try {
             $this->estadoFinancieroService->guardar($empresaId, $anio, $tipoEstado, $detalles);
             
-            // Redirect to the wizard's first step with a success message
-            return redirect()->route('importacion.wizard')->with('success', 'Estado financiero guardado con éxito. Puede importar más datos.');
+            // Return a JSON response instead of a redirect
+            return response()->json([
+                'success' => true,
+                'message' => 'Estado financiero guardado con éxito.',
+                'empresa_id' => $empresaId, // Pass empresa_id for potential redirection
+            ]);
 
         } catch (\Exception $e) {
             Log::error('Error al guardar estado financiero: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
-            // Return to the previous page with an error
-            return back()->withErrors(['server_error' => 'No se pudo guardar el estado financiero: ' . $e->getMessage()]);
+            // Return a JSON error response
+            return response()->json([
+                'success' => false,
+                'message' => 'No se pudo guardar el estado financiero: ' . $e->getMessage(),
+                'server_error' => $e->getMessage(),
+            ], 500);
         }
     }
 

@@ -108,18 +108,36 @@ class CatalogoService
     {
         $empresaId = $validatedData['empresa_id'];
 
+        Log::debug('CatalogoService: Inicia guardarMapeo', [
+            'empresa_id' => $empresaId,
+            'cuentas_recibidas' => $validatedData['cuentas'], // Log the received accounts
+        ]);
+
         // Limpiar el catálogo anterior para esta empresa
         CatalogoCuenta::where('empresa_id', $empresaId)->delete();
 
         // Crear las nuevas cuentas del catálogo
         foreach ($validatedData['cuentas'] as $cuenta) {
-            CatalogoCuenta::create([
-                'empresa_id' => $empresaId,
-                'codigo_cuenta' => $cuenta['codigo'],
-                'nombre_cuenta' => $cuenta['nombre'],
-                'cuenta_base_id' => $cuenta['cuenta_base_id'],
-            ]);
+            if (isset($cuenta['cuenta_base_id']) && $cuenta['cuenta_base_id'] !== null) {
+                CatalogoCuenta::create([
+                    'empresa_id' => $empresaId,
+                    'codigo_cuenta' => $cuenta['codigo_cuenta'],
+                    'nombre_cuenta' => $cuenta['nombre_cuenta'],
+                    'cuenta_base_id' => $cuenta['cuenta_base_id'],
+                ]);
+                Log::debug('CatalogoService: CatalogoCuenta creada', [
+                    'empresa_id' => $empresaId,
+                    'codigo_cuenta' => $cuenta['codigo_cuenta'],
+                    'cuenta_base_id' => $cuenta['cuenta_base_id'],
+                ]);
+            } else {
+                Log::debug('CatalogoService: Cuenta omitida (cuenta_base_id es nulo)', [
+                    'empresa_id' => $empresaId,
+                    'codigo_cuenta' => $cuenta['codigo_cuenta'],
+                ]);
+            }
         }
+        Log::debug('CatalogoService: Finaliza guardarMapeo');
     }
 
     public function procesarCatalogoBasePreview(string $filePath): array
@@ -187,12 +205,12 @@ class CatalogoService
         return ['datos' => $previewData, 'errores' => $errors, 'warnings' => $warnings];
     }
 
-    public function importarCuentasBase(\Illuminate\Http\UploadedFile $file, int $plantillaCatalogoId): array
+    public function importarCuentasBase(\Illuminate\Http\UploadedFile $file, int $plantillaCatalogoId, int $empresaId): array // <--- Add empresaId to signature
     {
         $collection = Excel::toCollection(new \App\Imports\CuentasBaseImport, $file)->first();
         $warnings = [];
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($collection, $plantillaCatalogoId, &$warnings) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($collection, $plantillaCatalogoId, $empresaId, &$warnings) { // <--- Add empresaId to use clause
             $existingAccounts = CuentaBase::where('plantilla_catalogo_id', $plantillaCatalogoId)
                 ->get()
                 ->keyBy('codigo');
@@ -280,6 +298,28 @@ class CatalogoService
                     ->whereIn('codigo', array_keys($parentCodes))
                     ->update(['tipo_cuenta' => 'AGRUPACION']);
             }
+
+            // --- NEW LOGIC: Create CatalogoCuenta records for the Empresa ---
+            // First, delete any existing CatalogoCuenta for this empresa that are linked to this plantilla's CuentaBase
+            CatalogoCuenta::where('empresa_id', $empresaId)
+                          ->whereIn('cuenta_base_id', $allAccounts->pluck('id'))
+                          ->delete();
+
+            foreach ($allAccounts as $cuentaBase) {
+                CatalogoCuenta::create([
+                    'empresa_id' => $empresaId,
+                    'cuenta_base_id' => $cuentaBase->id,
+                    'codigo_cuenta' => $cuentaBase->codigo, // Use code from CuentaBase
+                    'nombre_cuenta' => $cuentaBase->nombre, // Use name from CuentaBase
+                ]);
+                Log::debug('CatalogoService: CatalogoCuenta creada automáticamente desde importarCuentasBase', [
+                    'empresa_id' => $empresaId,
+                    'cuenta_base_id' => $cuentaBase->id,
+                    'codigo_cuenta' => $cuentaBase->codigo,
+                ]);
+            }
+            // --- END NEW LOGIC ---
+
         });
 
         return ['warnings' => $warnings];
@@ -355,6 +395,12 @@ class CatalogoService
         $bestMatch = null;
         $highestScore = 0;
 
+        Log::debug('findBestMatch: Iniciando búsqueda', [
+            'userCodigo' => $userCodigo,
+            'userNombre' => $userNombre,
+            'cuentasBase_count' => $cuentasBase->count(),
+        ]);
+
         foreach ($cuentasBase as $cb) {
             $score = 0;
             // Ponderación de puntajes
@@ -370,6 +416,17 @@ class CatalogoService
 
             $score += $nombreScore * 0.6; // 60% del puntaje por similitud de nombre
 
+            Log::debug('findBestMatch: Comparando', [
+                'userCodigo' => $userCodigo,
+                'cb_codigo' => $cb->codigo,
+                'userNombre' => $userNombre,
+                'cb_nombre' => $cb->nombre,
+                'codigoScore' => $codigoScore,
+                'nombreScore' => $nombreScore,
+                'currentScore' => $score,
+                'highestScore' => $highestScore,
+            ]);
+
             if ($score > $highestScore) {
                 $highestScore = $score;
                 $bestMatch = $cb;
@@ -378,9 +435,20 @@ class CatalogoService
 
         // Umbral de confianza: si el puntaje no es suficientemente alto, no lo consideramos una coincidencia.
         if ($highestScore > 70) { // Umbral del 70%
+            Log::debug('findBestMatch: Coincidencia encontrada', [
+                'userCodigo' => $userCodigo,
+                'highestScore' => $highestScore,
+                'bestMatch_id' => $bestMatch->id ?? null,
+                'bestMatch_codigo' => $bestMatch->codigo ?? null,
+            ]);
             return $bestMatch;
         }
 
+        Log::debug('findBestMatch: No se encontró coincidencia suficiente', [
+            'userCodigo' => $userCodigo,
+            'highestScore' => $highestScore,
+            'threshold' => 70,
+        ]);
         return null;
     }
 

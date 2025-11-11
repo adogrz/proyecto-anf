@@ -292,6 +292,7 @@ const CargarCatalogoBaseStep: React.FC<CargarCatalogoBaseStepProps> = ({ empresa
     const formData = new FormData();
     formData.append('archivo', archivo);
     formData.append('plantilla_catalogo_id', empresa.plantilla_catalogo_id.toString());
+    formData.append('empresa_id', empresa.id.toString()); // Add this line
 
     try {
       const response = await axios.post(route('importacion.importarCatalogoBase'), formData, {
@@ -915,6 +916,8 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
 };
 
 // --- Componente para el Paso 4 ---
+import ImportSuccessModal from '@/components/import/ImportSuccessModal'; // Import the new modal component
+
 const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack: () => void; }> = ({ previewData, empresaId, onBack }) => {
   const [isSaving, setIsSaving] = React.useState(false);
   const [nameFilter, setNameFilter] = React.useState('');
@@ -922,19 +925,57 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
   const [currentPage, setCurrentPage] = React.useState(1);
   const itemsPerPage = 10; // You can adjust this value
 
-  const handleConfirm = () => {
+  // State for the success modal
+  const [showSuccessModal, setShowSuccessModal] = React.useState(false);
+  const [successMessage, setSuccessMessage] = React.useState('');
+  const [importedEmpresaId, setImportedEmpresaId] = React.useState<number | null>(null);
+
+
+  const handleConfirm = async () => { // Make handleConfirm async
+    console.log('handleConfirm called');
     setIsSaving(true);
     const postData = {
       empresa_id: empresaId,
       anio: previewData.anio,
       tipo_estado: previewData.tipoEstado,
-      // Only send valid data for saving
-      detalles: previewData.data.filter((item: any) => item.status !== 'error'),
+      detalles: previewData.data.filter((item: any) => item.status !== 'error' && item.cuenta_base_id !== null && item.cuenta_base_id !== undefined),
     };
+    console.log('postData for saving:', postData);
 
-    router.post(route('importacion.guardarEstadoFinanciero'), postData, {
-      onFinish: () => setIsSaving(false),
-    });
+    // --- NEW: Frontend pre-check for empty detalles ---
+    if (postData.detalles.length === 0) {
+      setIsSaving(false);
+      toast.warning('No hay cuentas válidas para guardar.', {
+        description: 'Todas las cuentas fueron filtradas debido a errores o falta de mapeo. Por favor, revise la previsualización.',
+      });
+      return; // Stop the function here
+    }
+    // --- END NEW ---
+
+    try {
+      const response = await axios.post(route('importacion.guardarEstadoFinanciero'), postData); // Use axios.post
+
+      setIsSaving(false);
+      console.log('axios.post success response:', response.data);
+
+      // Set state to show the success modal
+      setSuccessMessage(response.data.message || 'Estado financiero guardado con éxito.');
+      setImportedEmpresaId(response.data.empresa_id || null);
+      setShowSuccessModal(true);
+
+    } catch (error: any) {
+      setIsSaving(false);
+      console.error('axios.post error response:', error);
+
+      let errorMessage = 'Ocurrió un error inesperado al guardar el estado financiero.';
+      if (error.response && error.response.data && error.response.data.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      toast.error('Error al guardar el estado financiero.', { description: errorMessage });
+    }
+    console.log('axios.post initiated (or completed)');
   };
 
   // Filtering Logic
@@ -964,6 +1005,8 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
     setCurrentPage(1);
   }, [nameFilter, statusFilter]);
 
+  const isConfirmButtonDisabled = isSaving || previewData.data.some((item: any) => item.status === 'error');
+  console.log('Confirm button disabled state:', isConfirmButtonDisabled, 'isSaving:', isSaving, 'hasErrors:', previewData.data.some((item: any) => item.status === 'error'));
 
   return (
     <Card>
@@ -1071,14 +1114,20 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
       </CardContent>
       <CardFooter className="flex justify-between">
         <Button variant="outline" onClick={onBack}>Atrás</Button>
-        <Button onClick={handleConfirm} disabled={isSaving || previewData.data.some((item: any) => item.status === 'error')}>
+        <Button onClick={handleConfirm} disabled={isConfirmButtonDisabled}>
           {isSaving ? 'Guardando...' : 'Confirmar y Guardar'}
         </Button>
       </CardFooter>
+      {/* Render the success modal */}
+      <ImportSuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        message={successMessage}
+        empresaId={importedEmpresaId}
+      />
     </Card>
   );
 };
-
 
 // --- Componente Principal del Asistente ---
 const ImportWizardPage = ({ empresas, sectores, plantillas }: { empresas: Empresa[], sectores: Sector[], plantillas: PlantillaCatalogo[] }) => {

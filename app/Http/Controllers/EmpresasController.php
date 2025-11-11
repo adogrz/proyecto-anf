@@ -98,16 +98,11 @@ class EmpresasController extends Controller
 
     public function checkCatalogStatus(Empresa $empresa)
     {
-        // Load the plantillaCatalogo relationship
-        $empresa->load('plantillaCatalogo');
-
-        $hasCuentasBase = false;
-        if ($empresa->plantillaCatalogo) {
-            $hasCuentasBase = $empresa->plantillaCatalogo->cuentasBase()->exists();
-        }
+        // Check if the company has any CatalogoCuenta records
+        $hasCatalogoCuentas = $empresa->catalogoCuentas()->exists();
 
         return response()->json([
-            'has_catalog' => $hasCuentasBase,
+            'has_catalog' => $hasCatalogoCuentas,
         ]);
     }
 }
