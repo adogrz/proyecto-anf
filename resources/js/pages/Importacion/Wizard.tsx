@@ -55,18 +55,11 @@ const DefineEmpresaStep: React.FC<DefineEmpresaStepProps> = ({ empresas, sectore
 
   const handleCreateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('handleCreateSubmit called'); // Debug log
     post(route('empresas.store'), {
       onSuccess: (page) => {
-        console.log('onSuccess callback executed'); // Debug log
-        console.log('page.props:', page.props); // Debug log
-        console.log('page.props.flash:', (page.props as any).flash); // Debug log
         const newEmpresa = (page.props as any).flash.empresa as Empresa;
         if (newEmpresa) {
-          console.log('newEmpresa found:', newEmpresa); // Debug log
           onEmpresaSelected(newEmpresa, 'goToStep2'); // New companies always go to step 2
-        } else {
-          console.log('newEmpresa not found in flash messages.'); // Debug log
         }
       },
       onError: (errors) => { // Add onError callback for debugging
@@ -944,7 +937,6 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
 
 
   const handleConfirm = async () => { // Make handleConfirm async
-    console.log('handleConfirm called');
     setIsSaving(true);
     const postData = {
       empresa_id: empresaId,
@@ -953,7 +945,6 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
       // Cambio: Solo filtrar por errores, no por cuenta_base_id (el backend crea cuentas automáticamente)
       detalles: previewData.data.filter((item: any) => item.status !== 'error'),
     };
-    console.log('postData for saving:', postData);
 
     // --- NEW: Frontend pre-check for empty detalles ---
     if (postData.detalles.length === 0) {
@@ -969,7 +960,6 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
       const response = await axios.post(route('importacion.guardarEstadoFinanciero'), postData); // Use axios.post
 
       setIsSaving(false);
-      console.log('axios.post success response:', response.data);
 
       // Set state to show the success modal
       setSuccessMessage(response.data.message || 'Estado financiero guardado con éxito.');
@@ -988,7 +978,6 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
       }
       toast.error('Error al guardar el estado financiero.', { description: errorMessage });
     }
-    console.log('axios.post initiated (or completed)');
   };
 
   // Filtering Logic
@@ -1019,7 +1008,6 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
   }, [nameFilter, statusFilter]);
 
   const isConfirmButtonDisabled = isSaving || previewData.data.some((item: any) => item.status === 'error');
-  console.log('Confirm button disabled state:', isConfirmButtonDisabled, 'isSaving:', isSaving, 'hasErrors:', previewData.data.some((item: any) => item.status === 'error'));
 
   return (
     <Card>
