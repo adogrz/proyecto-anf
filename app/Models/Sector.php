@@ -19,4 +19,9 @@ class Sector extends Model
     {
         return $this->hasMany(RatioSector::class, 'sector_id');
     }
+
+    public function empresas(): HasMany
+    {
+        return $this->hasMany(Empresa::class, 'sector_id');
+    }
 }

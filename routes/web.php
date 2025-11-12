@@ -4,6 +4,7 @@ use App\Http\Controllers\AnalisisController;
 use App\Http\Controllers\AnalisisRatiosController;
 use App\Http\Controllers\CatalogosCuentasController;
 use App\Http\Controllers\CuentasBaseController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DatoVentaHistoricoController;
 use App\Http\Controllers\EmpresasController;
 use App\Http\Controllers\EstadosFinancierosController;
@@ -27,9 +28,7 @@ Route::get('/', function () {
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('dashboard', function () {
-        return Inertia::render('dashboard');
-    })->name('dashboard');
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // Administración (Solo para rol 'Administrador')
     Route::middleware('can:sectores.index')->group(function () {
