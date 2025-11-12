@@ -15,6 +15,13 @@ use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
 
 class EstadoFinancieroService
 {
+    protected $calculoRatiosService;
+
+    public function __construct(CalculoRatiosService $calculoRatiosService)
+    {
+        $this->calculoRatiosService = $calculoRatiosService;
+    }
+
     public function previsualizar(UploadedFile $file, int $empresaId, int $anio, string $tipoEstado): array
     {
         $erroresGlobales = []; // For errors affecting the whole file
@@ -90,8 +97,22 @@ class EstadoFinancieroService
                 $rowStatus = 'valid';
 
                 $filaNorm = $this->normalizeRowKeys($fila);
+                
+                // Debug: Log first row to see structure
+                if ($numeroFila === 2) {
+                    Log::info("🔍 Debug primera fila normalizada:", ['fila_original' => $fila, 'fila_normalizada' => $filaNorm]);
+                }
 
+                // Convertir código de cuenta a string y limpiar (puede venir como número decimal del CSV)
                 $codigoCuenta = trim((string)($filaNorm['codigo_cuenta'] ?? $filaNorm['codigo'] ?? ''));
+                
+                // Si el código viene como número decimal (ej: 1101.01), asegurarnos de que mantenga el formato
+                // Excel a veces lee "1101.01" como número 1101.01
+                if (is_numeric($codigoCuenta) && str_contains($codigoCuenta, '.')) {
+                    // Mantener el formato decimal si tiene punto
+                    $codigoCuenta = rtrim(rtrim($codigoCuenta, '0'), '.');
+                }
+                
                 $saldoRaw = $filaNorm['saldo'] ?? $filaNorm['valor'] ?? null; // Keep raw for validation
 
                 // --- Validation for codigo_cuenta ---
@@ -104,8 +125,10 @@ class EstadoFinancieroService
                 if ($rowStatus !== 'error') { // Only check if no prior errors for this field
                     $cuentaBase = $cuentasBasePlantilla->get($codigoCuenta);
                     if (!$cuentaBase) {
-                        $rowWarnings[] = "La cuenta '{$codigoCuenta}' no existe en las cuentas base de la plantilla de la empresa.";
-                        if ($rowStatus === 'valid') $rowStatus = 'warning'; // Only downgrade from valid to warning
+                        // Cambio: Ya no es warning, permitimos que se importe
+                        // La cuenta se creará automáticamente durante el guardado
+                        Log::info("📋 La cuenta '{$codigoCuenta}' no existe en la plantilla pero se creará automáticamente al importar.");
+                        // No agregamos warning, solo dejamos que continúe
                     }
                 }
 
@@ -146,9 +169,9 @@ class EstadoFinancieroService
                 $previewData[] = [
                     'original_row_data' => $fila,
                     'codigo_cuenta' => $codigoCuenta,
-                    'nombre_cuenta' => $cuentaBase->nombre ?? 'N/A',
+                    'nombre_cuenta' => $cuentaBase->nombre ?? ('Cuenta ' . $codigoCuenta),
                     'cuenta_base_id' => $cuentaBase->id ?? null,
-                    'cuenta_base_nombre' => $cuentaBase->nombre ?? 'N/A',
+                    'cuenta_base_nombre' => $cuentaBase->nombre ?? ('Cuenta ' . $codigoCuenta),
                     'saldo' => $saldo,
                     'fecha' => $fecha,
                     'periodo' => $periodo,
@@ -176,6 +199,15 @@ class EstadoFinancieroService
                 $finalDatos[] = $item;
             }
         }
+
+        Log::info("📊 Resultado de previsualización:", [
+            'total_previewData' => count($previewData),
+            'total_finalDatos' => count($finalDatos),
+            'total_errores' => count($erroresGlobales),
+            'total_warnings' => count($warningsGlobales),
+            'errores' => $erroresGlobales,
+            'warnings' => $warningsGlobales
+        ]);
 
         return ['datos' => $finalDatos, 'errores' => $erroresGlobales, 'warnings' => $warningsGlobales];
     }
@@ -212,20 +244,37 @@ class EstadoFinancieroService
 
                 // Find the CatalogoCuenta for the given empresa_id and codigo_cuenta from the uploaded file
                 $catalogoCuenta = \App\Models\CatalogoCuenta::where('empresa_id', $empresaId)
-                                                            ->where('codigo_cuenta', $detalle['codigo_cuenta']) // Use codigo_cuenta from the detail
+                                                            ->where('codigo_cuenta', $detalle['codigo_cuenta'])
                                                             ->first();
 
+                // Si la cuenta no existe en el catálogo, crearla automáticamente
                 if (!$catalogoCuenta) {
-                    // This is a critical error. If the code from the Excel was validated against CuentaBase,
-                    // but there's no corresponding CatalogoCuenta, it means the mapping is incomplete or incorrect.
-                    Log::error('EstadoFinancieroService: No se encontró CatalogoCuenta para guardar DetalleEstado. La cuenta del archivo no está mapeada para esta empresa.', [
-                        'empresa_id' => $empresaId,
-                        'codigo_cuenta_from_excel' => $detalle['codigo_cuenta'],
-                        'cuenta_base_id_from_preview' => $detalle['cuenta_base_id'], // For debugging
-                        'detalle_index' => $index
-                    ]);
-                    // Throw an exception to roll back the transaction and provide feedback
-                    throw new \Exception("La cuenta '{$detalle['codigo_cuenta']}' del archivo no está mapeada en el catálogo de la empresa.");
+                    Log::info("📝 Cuenta '{$detalle['codigo_cuenta']}' no existe en el catálogo. Creándola automáticamente...");
+                    
+                    // Buscar la cuenta base para obtener información adicional
+                    $cuentaBase = \App\Models\CuentaBase::where('codigo', $detalle['codigo_cuenta'])->first();
+                    
+                    if (!$cuentaBase) {
+                        // Si tampoco existe en cuentas base, crear con datos mínimos
+                        Log::warning("⚠️ Cuenta '{$detalle['codigo_cuenta']}' tampoco existe en cuentas base. Creando con nombre del archivo.");
+                        
+                        $catalogoCuenta = \App\Models\CatalogoCuenta::create([
+                            'empresa_id' => $empresaId,
+                            'codigo_cuenta' => $detalle['codigo_cuenta'],
+                            'nombre_cuenta' => $detalle['nombre_cuenta'] ?? 'Cuenta importada - ' . $detalle['codigo_cuenta'],
+                            'cuenta_base_id' => null,
+                        ]);
+                    } else {
+                        // Crear con la información de cuenta base
+                        $catalogoCuenta = \App\Models\CatalogoCuenta::create([
+                            'empresa_id' => $empresaId,
+                            'codigo_cuenta' => $detalle['codigo_cuenta'],
+                            'nombre_cuenta' => $cuentaBase->nombre,
+                            'cuenta_base_id' => $cuentaBase->id,
+                        ]);
+                        
+                        Log::info("✅ Cuenta '{$detalle['codigo_cuenta']}' creada en el catálogo desde cuenta base.");
+                    }
                 }
 
                 DetalleEstado::create([
@@ -238,6 +287,20 @@ class EstadoFinancieroService
                 ]);
             }
         });
+
+        // Después de guardar exitosamente el estado financiero, calcular ratios
+        // Los ratios se calcularán incluso si no existen todas las cuentas necesarias
+        try {
+            Log::info("🔢 Calculando ratios para empresa {$empresaId}, año {$anio} después de importar estado financiero.");
+            
+            $this->calculoRatiosService->calcularYGuardar($empresaId, $anio);
+            
+            Log::info("✅ Ratios calculados exitosamente para empresa {$empresaId}, año {$anio}.");
+        } catch (\Exception $e) {
+            // No lanzamos la excepción para no afectar el guardado del estado financiero
+            // pero sí registramos el error
+            Log::warning("⚠️ Error al calcular ratios para empresa {$empresaId}, año {$anio}: " . $e->getMessage());
+        }
     }
 
     private function normalizeRowKeys(array $row): array

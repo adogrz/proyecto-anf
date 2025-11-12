@@ -63,11 +63,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Gestión de Empresas y sus datos (Para 'Gerente Financiero' y 'Administrador')
     Route::resource('empresas', EmpresasController::class)->middleware('can:empresas.index');
     Route::get('empresas/{empresa}/check-catalog-status', [EmpresasController::class, 'checkCatalogStatus'])->name('empresas.checkCatalogStatus');
-    Route::resource('empresas.catalogos', CatalogosCuentasController::class)->shallow()->middleware('can:catalogos.index');
-    Route::resource('empresas.estados-financieros', EstadosFinancierosController::class);
-    Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->shallow()->middleware('can:estados-financieros.index');
-
-    Route::resource('empresas.estados-financieros', EstadosFinancierosController::class);
+    Route::resource('empresas.catalogos', CatalogosCuentasController::class)->middleware('can:catalogos.index');
+    Route::resource('empresas.estados-financieros', EstadosFinancierosController::class)->middleware('can:estados-financieros.index');
 
     // Análisis de Ratios por Empresa
     Route::prefix('empresas/{empresa}')->name('empresas.')->middleware('can:ratios-financieros.index')->group(function () {

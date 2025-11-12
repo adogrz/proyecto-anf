@@ -140,10 +140,10 @@ class CatalogoService
         Log::debug('CatalogoService: Finaliza guardarMapeo');
     }
 
-    public function procesarCatalogoBasePreview(string $filePath): array
+    public function procesarCatalogoBasePreview(\Illuminate\Http\UploadedFile $file): array
     {
         $import = new class implements WithHeadingRow {};
-        $filas = Excel::toArray($import, $filePath)[0] ?? [];
+        $filas = Excel::toArray($import, $file)[0] ?? [];
 
         if (empty($filas)) {
             throw new \Exception("Archivo vacío o no se pudo leer.");

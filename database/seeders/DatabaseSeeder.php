@@ -29,7 +29,6 @@ class DatabaseSeeder extends Seeder
         $this->call(TestUserSeeder::class);
         $this->call(CatalogoBaseSeeder::class);
         $this->call(DemoDataSeeder::class);
-        $this->call(DemoEmpresaSeeder::class);
         $this->call(TestBalanceGeneralSeeder::class);
 
         // Para analisis de Ratios

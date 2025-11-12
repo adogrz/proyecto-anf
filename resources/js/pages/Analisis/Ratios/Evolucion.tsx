@@ -291,7 +291,9 @@ export default function Evolucion({
                                     {ratioActual.tendencia.variacion > 0
                                         ? '+'
                                         : ''}
-                                    {ratioActual.tendencia.variacion.toFixed(1)}
+                                    {ratioActual.tendencia.variacion !== undefined
+                                        ? ratioActual.tendencia.variacion.toFixed(1)
+                                        : '0.0'}
                                     %
                                 </span>
                                 {getTrendIcon(ratioActual.tendencia.direccion)}
@@ -314,7 +316,9 @@ export default function Evolucion({
                         </CardHeader>
                         <CardContent>
                             <p className="text-2xl font-bold text-slate-900 tabular-nums dark:text-white">
-                                {ratioActual.tendencia.valor_final.toFixed(2)}
+                                {ratioActual.tendencia.valor_final !== undefined
+                                    ? ratioActual.tendencia.valor_final.toFixed(2)
+                                    : 'N/A'}
                             </p>
                         </CardContent>
                     </Card>

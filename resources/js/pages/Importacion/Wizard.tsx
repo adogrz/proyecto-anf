@@ -950,7 +950,8 @@ const PrevisualizarStep: React.FC<{ previewData: any; empresaId: number; onBack:
       empresa_id: empresaId,
       anio: previewData.anio,
       tipo_estado: previewData.tipoEstado,
-      detalles: previewData.data.filter((item: any) => item.status !== 'error' && item.cuenta_base_id !== null && item.cuenta_base_id !== undefined),
+      // Cambio: Solo filtrar por errores, no por cuenta_base_id (el backend crea cuentas automáticamente)
+      detalles: previewData.data.filter((item: any) => item.status !== 'error'),
     };
     console.log('postData for saving:', postData);
 

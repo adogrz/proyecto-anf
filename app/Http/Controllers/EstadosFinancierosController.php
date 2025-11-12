@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreEstadoFinancieroRequest;
 use App\Http\Requests\UpdateEstadoFinancieroRequest;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use App\Models\DetalleEstado;
 use App\Models\CatalogoCuenta;
 use App\Models\CuentaBase;
@@ -95,6 +96,8 @@ class EstadosFinancierosController extends Controller
             abort(403, 'Unauthorized action.');
         }
 
+        $anio = $request->anio;
+
         DB::transaction(function () use ($request, $empresa) {
             $estadoFinanciero = $empresa->estadosFinancieros()->create([
                 'anio' => $request->anio,
@@ -110,7 +113,13 @@ class EstadosFinancierosController extends Controller
 
         });
         
-        $this->ratioService->calcularYGuardarParaTodasLasEmpresas();
+        // Calcular ratios solo para esta empresa y año específicos
+        try {
+            $this->ratioService->calcularYGuardar($empresa->id, $anio);
+        } catch (\Exception $e) {
+            Log::warning("⚠️ Error al calcular ratios después de crear estado financiero: " . $e->getMessage());
+        }
+        
         return redirect()->route('empresas.estados-financieros.index', $empresa)
                          ->with('success', 'Estado Financiero creado exitosamente.');
     }
@@ -216,6 +225,8 @@ class EstadosFinancierosController extends Controller
         // because findOrFail($estadoFinancieroId) is scoped to $empresa->estadosFinancieros()
         // If the model is not found within the company's financial statements, a 404 will be thrown by findOrFail.
 
+        $anio = $request->anio;
+
         DB::transaction(function () use ($request, $estadoFinanciero) {
             $estadoFinanciero->update([
                 'anio' => $request->anio,
@@ -252,7 +263,13 @@ class EstadosFinancierosController extends Controller
                 DetalleEstado::whereIn('id', $detallesToDelete)->delete();
             }
         });
-        $this->ratioService->calcularYGuardarParaTodasLasEmpresas();
+        
+        // Calcular ratios solo para esta empresa y año específicos
+        try {
+            $this->ratioService->calcularYGuardar($empresa->id, $anio);
+        } catch (\Exception $e) {
+            Log::warning("⚠️ Error al calcular ratios después de actualizar estado financiero: " . $e->getMessage());
+        }
 
         return redirect()->route('empresas.estados-financieros.index', $empresa)
                          ->with('success', 'Estado Financiero actualizado exitosamente.');

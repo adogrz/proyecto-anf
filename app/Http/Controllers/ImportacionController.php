@@ -255,7 +255,7 @@ class ImportacionController extends Controller
 
         try {
             $file = $request->file('archivo');
-            $resultado = $this->catalogoService->procesarCatalogoBasePreview($file->getRealPath());
+            $resultado = $this->catalogoService->procesarCatalogoBasePreview($file);
 
             return response()->json($resultado);
         } catch (\Exception $e) {
@@ -304,7 +304,7 @@ class ImportacionController extends Controller
             'tipo_estado' => 'required|in:balance_general,estado_resultados',
             'detalles' => 'required|array',
             'detalles.*.codigo_cuenta' => 'required|string|max:255',
-            'detalles.*.cuenta_base_id' => 'required|exists:cuentas_base,id',
+            'detalles.*.cuenta_base_id' => 'nullable|exists:cuentas_base,id', // Cambiado a nullable
             'detalles.*.saldo' => 'required|numeric',
             'detalles.*.fecha' => 'nullable',
             'detalles.*.periodo' => 'nullable',
@@ -339,23 +339,56 @@ class ImportacionController extends Controller
     /**
      * Descarga plantilla de ejemplo según el tipo (xlsx por defecto, csv opcional)
      */
-    public function descargarPlantilla(Request $request)
+    public function descargarPlantilla(Request $request, $tipo = null)
     {
         $format = strtolower($request->query('format', 'xlsx')); // 'xlsx' or 'csv'
 
-        // Preparar cabeceras y ejemplos para una plantilla unificada de estados financieros
-        $headers = ['codigo_cuenta', 'saldo'];
-        $rows = [
-            // Ejemplos para Balance General
-            ['1.1.1', '10000.00'], // Caja y Bancos
-            ['1.1.2', '25000.00'], // Cuentas por Cobrar
-            ['2.1.1', '15000.00'], // Proveedores
-            ['3.1.1', '50000.00'], // Capital Social
-            // Ejemplos para Estado de Resultados
-            ['4.1.1', '100000.00'], // Ventas
-            ['5.1.1', '-60000.00'], // Costo de Ventas
-            ['6.1.1', '-10000.00'], // Gastos de Administración
-        ];
+        // Determinar qué plantilla generar
+        if ($tipo === 'catalogo') {
+            // Plantilla de Catálogo de Cuentas
+            $headers = ['codigo_cuenta', 'nombre_cuenta'];
+            $rows = [
+                ['1', 'ACTIVO'],
+                ['1.1', 'ACTIVO CORRIENTE'],
+                ['1.1.1', 'Caja y Bancos'],
+                ['1.1.2', 'Cuentas por Cobrar'],
+                ['1.2', 'ACTIVO NO CORRIENTE'],
+                ['1.2.1', 'Propiedad, Planta y Equipo'],
+                ['2', 'PASIVO'],
+                ['2.1', 'PASIVO CORRIENTE'],
+                ['2.1.1', 'Proveedores'],
+                ['2.1.2', 'Cuentas por Pagar'],
+                ['3', 'PATRIMONIO'],
+                ['3.1', 'CAPITAL'],
+                ['3.1.1', 'Capital Social'],
+                ['4', 'INGRESOS'],
+                ['4.1', 'INGRESOS OPERACIONALES'],
+                ['4.1.1', 'Ventas'],
+                ['5', 'COSTOS'],
+                ['5.1', 'COSTO DE VENTAS'],
+                ['5.1.1', 'Costo de Ventas'],
+                ['6', 'GASTOS'],
+                ['6.1', 'GASTOS OPERACIONALES'],
+                ['6.1.1', 'Gastos de Administración'],
+                ['6.1.2', 'Gastos de Ventas'],
+            ];
+            $filename = "plantilla_catalogo_cuentas.{$format}";
+        } else {
+            // Plantilla de Estados Financieros
+            $headers = ['codigo_cuenta', 'saldo'];
+            $rows = [
+                // Ejemplos para Balance General
+                ['1.1.1', '10000.00'], // Caja y Bancos
+                ['1.1.2', '25000.00'], // Cuentas por Cobrar
+                ['2.1.1', '15000.00'], // Proveedores
+                ['3.1.1', '50000.00'], // Capital Social
+                // Ejemplos para Estado de Resultados
+                ['4.1.1', '100000.00'], // Ventas
+                ['5.1.1', '-60000.00'], // Costo de Ventas
+                ['6.1.1', '-10000.00'], // Gastos de Administración
+            ];
+            $filename = "plantilla_estados_financieros.{$format}";
+        }
 
         // Construir hoja con PhpSpreadsheet (misma estructura para csv/xlsx para evitar columnas combinadas)
         $spreadsheet = new Spreadsheet();
@@ -374,8 +407,6 @@ class ImportacionController extends Controller
             }
             $rowIndex++;
         }
-
-        $filename = "plantilla_estados_financieros.{$format}";
 
         if ($format === 'csv') {
             $writer = new Csv($spreadsheet);

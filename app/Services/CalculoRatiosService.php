@@ -71,33 +71,32 @@ class CalculoRatiosService
             ->with('detalles.catalogoCuenta')
             ->first();
 
-
-
         $resultado = EstadoFinanciero::where('empresa_id', $empresaId)
             ->where('anio', $anio)
             ->whereIn('tipo_estado', ['estado_resultado', 'estado_resultados'])
             ->with('detalles.catalogoCuenta')
             ->first();
 
-        if (!$balance || !$resultado) {
-            Log::warning("❗ No se encontraron estados completos para empresa {$empresaId}, año {$anio}.");
+        // Verificar la existencia de ambos estados financieros con mensajes específicos
+        $tieneBalance = !is_null($balance);
+        $tieneResultado = !is_null($resultado);
+
+        if (!$tieneBalance && !$tieneResultado) {
+            Log::warning("❗ No se encontró ningún estado financiero para empresa {$empresaId}, año {$anio}. Se omite el cálculo de ratios.");
             return [];
         }
 
+        if (!$tieneBalance) {
+            Log::warning("❗ Falta Balance General para empresa {$empresaId}, año {$anio}. Solo se encontró Estado de Resultados. Se omite el cálculo de ratios.");
+            return [];
+        }
 
+        if (!$tieneResultado) {
+            Log::warning("❗ Falta Estado de Resultados para empresa {$empresaId}, año {$anio}. Solo se encontró Balance General. Se omite el cálculo de ratios.");
+            return [];
+        }
 
-        // DESPUÉS DE LA CORRECCIÓN DE NOMBRES DE CUENTA:
-//$activoCorriente  = $this->obtenerValor($balance, 'ACTIVO CORRIENTE');
-//$pasivoCorriente  = $this->obtenerValor($balance, 'PASIVO CORRIENTE');
-//$inventario = $this->obtenerValor($balance, 'INVENTARIOS'); // <- CORREGIDO
-//$activoTotal  = $this->obtenerValor($balance, 'ACTIVO'); // <- CORREGIDO
-//$pasivoTotal = $this->obtenerValor($balance, 'PASIVO'); // <- CORREGIDO
-//$patrimonio = $this->obtenerValor($balance, 'PATRIMONIO');
-//$ventasNetas = $this->obtenerValor($resultado, 'VENTAS'); // Corregido el caso, aunque 'Ventas' también funcionaría por strtoupper
-//$costoVentas  = $this->obtenerValor($resultado, 'COSTO DE VENTAS'); // <- CORREGIDO
-//$utilidadNeta = $this->obtenerValor($resultado, 'Utilidad del Ejercicio');
-// === Buscar valores usando código de cuenta ===
-// (ajusta los códigos según tu catálogo_cuentas)
+        // === Buscar valores usando nombre de cuenta ===
         $activoCorriente = $this->obtenerValor($balance, 'ACTIVO CORRIENTE');
         $pasivoCorriente = $this->obtenerValor($balance, 'PASIVO CORRIENTE');
         $inventario = $this->obtenerValor($balance, 'INVENTARIOS');
@@ -108,9 +107,11 @@ class CalculoRatiosService
         $costoVentas = $this->obtenerValor($resultado, 'COSTO DE VENTAS');
         $utilidadNeta = $this->obtenerValor($resultado, 'Utilidad del Ejercicio');
 
-        echo ("🔢 Valores obtenidos para empresa {$empresaId}, año {$anio}: Activo Corriente={$activoCorriente}, Pasivo Corriente={$pasivoCorriente}, Inventario={$inventario}, Activo Total={$activoTotal}, Pasivo Total={$pasivoTotal}, Patrimonio={$patrimonio}, Ventas Netas={$ventasNetas}, Costo de Ventas={$costoVentas}, Utilidad Neta={$utilidadNeta}");
-
-
+        Log::info("🔢 Valores obtenidos para empresa {$empresaId}, año {$anio}: " .
+            "Activo Corriente={$activoCorriente}, Pasivo Corriente={$pasivoCorriente}, " .
+            "Inventario={$inventario}, Activo Total={$activoTotal}, Pasivo Total={$pasivoTotal}, " .
+            "Patrimonio={$patrimonio}, Ventas Netas={$ventasNetas}, Costo de Ventas={$costoVentas}, " .
+            "Utilidad Neta={$utilidadNeta}");
 
         // Cálculo de ratios
         $ratios = [
@@ -126,9 +127,10 @@ class CalculoRatiosService
             self::ROE              => $this->div($utilidadNeta, $patrimonio),
         ];
 
-        dump($ratios);
-        try{
-            echo "Guardando ratios para empresa {$empresaId}, año {$anio}...\n";
+        // Guardar ratios calculados
+        try {
+            Log::info("💾 Guardando ratios para empresa {$empresaId}, año {$anio}...");
+            
             DB::transaction(function () use ($empresaId, $anio, $ratios) {
                 RatioCalculado::where('empresa_id', $empresaId)
                     ->where('anio', $anio)
@@ -143,13 +145,13 @@ class CalculoRatiosService
                     ]);
                 }
             });
-        }   catch (\Exception $e) {
-            Log::error("❌ Error al guardar ratios para empresa {$empresaId}, año {$anio}: " . $e->getMessage());
-            echo "Error al guardar ratios para empresa {$empresaId}, año {$anio}: " . $e->getMessage();
-        }
-        // Guardar ratios calculados
 
-        Log::info("✅ Ratios calculados y guardados para empresa {$empresaId}, año {$anio}");
+            Log::info("✅ Ratios calculados y guardados exitosamente para empresa {$empresaId}, año {$anio}");
+        } catch (\Exception $e) {
+            Log::error("❌ Error al guardar ratios para empresa {$empresaId}, año {$anio}: " . $e->getMessage());
+            throw $e; // Re-lanzar la excepción para que sea manejada en el nivel superior
+        }
+
         return $ratios;
     }
 

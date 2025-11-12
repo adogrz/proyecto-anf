@@ -36,11 +36,6 @@ const mainNavItems: NavItem[] = [
         href: '/plantillas-catalogo',
         icon: FolderTree,
     },
-    {
-        title: 'Cuentas',
-        href: '/cuentas-base',
-        icon: FileText,
-    },
 ];
 
 export function AppSidebar() {
