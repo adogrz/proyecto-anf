@@ -893,13 +893,8 @@ const CargarEstadoFinancieroStep: React.FC<{ empresa: Empresa; onPreview: (data:
 
         <div className="flex justify-end gap-2 flex-wrap">
             <Button variant="outline" asChild>
-                <a href={route('importacion.descargarPlantilla', { tipo: 'balance' })}>
-                    <FileDown className="mr-2 h-4 w-4" /> Plantilla Balance General
-                </a>
-            </Button>
-            <Button variant="outline" asChild>
-                <a href={route('importacion.descargarPlantilla', { tipo: 'resultados' })}>
-                    <FileDown className="mr-2 h-4 w-4" /> Plantilla Estado de Resultados
+                <a href={route('importacion.descargarPlantilla')}>
+                    <FileDown className="mr-2 h-4 w-4" /> Descargar Plantilla Estados Financieros
                 </a>
             </Button>
         </div>

@@ -339,47 +339,23 @@ class ImportacionController extends Controller
     /**
      * Descarga plantilla de ejemplo según el tipo (xlsx por defecto, csv opcional)
      */
-    public function descargarPlantilla(Request $request, $tipo = 'catalogo')
+    public function descargarPlantilla(Request $request)
     {
         $format = strtolower($request->query('format', 'xlsx')); // 'xlsx' or 'csv'
 
-        // Preparar cabeceras y ejemplos
-        switch ($tipo) {
-            case 'balance':
-                $headers = ['codigo_cuenta', 'nombre_cuenta', 'saldo'];
-                $rows = [
-                    ['1.1.1', 'Caja y Bancos', '10000.00'],
-                    ['1.1.2', 'Cuentas por Cobrar', '25000.00'],
-                ];
-                break;
-            case 'resultados':
-                $headers = ['codigo_cuenta', 'nombre_cuenta', 'saldo', 'periodo'];
-                $rows = [
-                    ['4.1.1', 'Ventas', '100000.00', '2025-12'],
-                    ['5.1.1', 'Costo de Ventas', '-60000.00', '2025-12'],
-                ];
-                break;
-            case 'catalogo':
-            default:
-                $headers = ['codigo_cuenta', 'nombre_cuenta'];
-                $rows = [
-                    ['1', 'ACTIVO'],
-                    ['1.1', 'ACTIVO CORRIENTE'],
-                    ['1.1.1', 'EFECTIVO Y EQUIVALENTES'],
-                    ['2', 'PASIVO'],
-                    ['2.1', 'PASIVO CORRIENTE'],
-                    ['2.1.1', 'PROVEEDORES'],
-                    ['3', 'PATRIMONIO'],
-                    ['3.1', 'CAPITAL SOCIAL'],
-                    ['4', 'INGRESOS'],
-                    ['4.1', 'VENTAS'],
-                    ['5', 'COSTOS'],
-                    ['5.1', 'COSTO DE VENTAS'],
-                    ['6', 'GASTOS'],
-                    ['6.1', 'GASTOS DE ADMINISTRACION'],
-                ];
-                break;
-        }
+        // Preparar cabeceras y ejemplos para una plantilla unificada de estados financieros
+        $headers = ['codigo_cuenta', 'saldo'];
+        $rows = [
+            // Ejemplos para Balance General
+            ['1.1.1', '10000.00'], // Caja y Bancos
+            ['1.1.2', '25000.00'], // Cuentas por Cobrar
+            ['2.1.1', '15000.00'], // Proveedores
+            ['3.1.1', '50000.00'], // Capital Social
+            // Ejemplos para Estado de Resultados
+            ['4.1.1', '100000.00'], // Ventas
+            ['5.1.1', '-60000.00'], // Costo de Ventas
+            ['6.1.1', '-10000.00'], // Gastos de Administración
+        ];
 
         // Construir hoja con PhpSpreadsheet (misma estructura para csv/xlsx para evitar columnas combinadas)
         $spreadsheet = new Spreadsheet();
@@ -399,9 +375,9 @@ class ImportacionController extends Controller
             $rowIndex++;
         }
 
-        if ($format === 'csv') {
-            $filename = "plantilla_{$tipo}.csv";
+        $filename = "plantilla_estados_financieros.{$format}";
 
+        if ($format === 'csv') {
             $writer = new Csv($spreadsheet);
             // Use comma as delimiter for better compatibility
             $writer->setDelimiter(',');
@@ -425,15 +401,14 @@ class ImportacionController extends Controller
 
         // Default: generar XLSX
         $writerXlsx = new Xlsx($spreadsheet);
-        $filenameXlsx = "plantilla_{$tipo}.xlsx";
 
         $callbackXlsx = function() use ($writerXlsx) {
             $writerXlsx->save('php://output');
         };
 
-        return response()->streamDownload($callbackXlsx, $filenameXlsx, [
+        return response()->streamDownload($callbackXlsx, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => "attachment; filename=\"{$filenameXlsx}\""
+            'Content-Disposition' => "attachment; filename=\"{$filename}\""
         ]);
     }
 
@@ -456,23 +431,13 @@ class ImportacionController extends Controller
                     ],
                     'ejemplo' => '1.1.1,Caja,Efectivo disponible,D'
                 ],
-                'balance' => [
-                    'descripcion' => 'Balance General',
+                'estados_financieros' => [
+                    'descripcion' => 'Plantilla unificada para Balance General y Estado de Resultados',
                     'columnas' => [
-                        'codigo_cuenta' => 'Código del catálogo',
-                        'saldo' => 'Monto (usar punto decimal)',
-                        'fecha' => 'Fecha del balance (YYYY-MM-DD)'
+                        'codigo_cuenta' => 'Código de la cuenta contable',
+                        'saldo' => 'Monto o saldo de la cuenta (usar punto decimal para decimales, negativo para gastos/egresos)',
                     ],
-                    'ejemplo' => '1.1.1,10000.00,2025-12-31'
-                ],
-                'resultados' => [
-                    'descripcion' => 'Estado de Resultados',
-                    'columnas' => [
-                        'codigo_cuenta' => 'Código del catálogo',
-                        'saldo' => 'Monto (negativo para gastos)',
-                        'periodo' => 'Periodo contable (YYYY-MM)'
-                    ],
-                    'ejemplo' => '4.1.1,100000.00,2025-12'
+                    'ejemplo' => '1.1.1,10000.00 (Activo); 5.1.1,-60000.00 (Costo de Ventas)'
                 ]
             ]
         ]);

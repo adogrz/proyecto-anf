@@ -73,9 +73,6 @@ class EstadoFinancieroService
             $normalizedHeaders = array_keys($this->normalizeRowKeys($firstRow));
 
             $expectedHeaders = ['codigo_cuenta', 'saldo'];
-            if ($tipoEstado === 'estado_resultados') {
-                $expectedHeaders[] = 'periodo';
-            }
 
             $missingHeaders = array_diff($expectedHeaders, $normalizedHeaders);
 
@@ -135,22 +132,14 @@ class EstadoFinancieroService
                     }
                 }
 
+                // Derive fecha and periodo based on tipoEstado and anio
                 $periodo = null;
                 $fecha = null;
 
-                // --- Specific validations based on tipoEstado ---
-                if ($tipoEstado === 'estado_resultados') {
-                    $periodo = trim((string)($filaNorm['periodo'] ?? $filaNorm['month'] ?? ''));
-                    if (empty($periodo)) {
-                        $rowErrors[] = "El período es obligatorio para Estado de Resultados.";
-                        $rowStatus = 'error';
-                    } elseif (!preg_match('/^\d{4}-\d{2}$/', $periodo)) {
-                        $rowErrors[] = "Formato de período inválido para Estado de Resultados. Se espera YYYY-MM.";
-                        $rowStatus = 'error';
-                    } elseif (substr($periodo, 0, 4) != $anio) {
-                        $rowErrors[] = "El período '{$periodo}' no corresponde al año {$anio} especificado.";
-                        $rowStatus = 'error';
-                    }
+                if ($tipoEstado === 'balance_general') {
+                    $fecha = "{$anio}-12-31"; // Assuming year-end balance
+                } elseif ($tipoEstado === 'estado_resultados') {
+                    $periodo = "{$anio}-12"; // Assuming annual income statement for the whole year
                 }
 
                 // Add row to previewData with its status and errors/warnings
@@ -213,8 +202,12 @@ class EstadoFinancieroService
 
             foreach ($detalles as $index => $detalle) {
                 $fechaParaGuardar = null;
+                $periodoParaGuardar = null;
+
                 if ($tipoEstado === 'balance_general') {
                     $fechaParaGuardar = "{$anio}-12-31";
+                } elseif ($tipoEstado === 'estado_resultados') {
+                    $periodoParaGuardar = "{$anio}-12"; // Assuming annual income statement for the whole year
                 }
 
                 // Find the CatalogoCuenta for the given empresa_id and codigo_cuenta from the uploaded file
@@ -241,7 +234,7 @@ class EstadoFinancieroService
                     'codigo_cuenta' => $detalle['codigo_cuenta'], // This is the company's specific code
                     'valor' => $detalle['saldo'], // Use 'valor' instead of 'saldo'
                     'fecha' => $fechaParaGuardar,
-                    'periodo' => $detalle['periodo'] ?? null,
+                    'periodo' => $periodoParaGuardar,
                 ]);
             }
         });
