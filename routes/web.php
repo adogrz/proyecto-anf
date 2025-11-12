@@ -16,10 +16,14 @@ use App\Http\Controllers\Administracion\ImportacionCuentasBaseController;
 use App\Http\Controllers\ProyeccionVentasController;
 use App\Http\Controllers\CalculoRatiosController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('welcome');
+    if (Auth::check()) {
+        return redirect('/dashboard');
+    }
+    return redirect('/login');
 })->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -132,7 +136,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('ratios.calcular')
         ->middleware('can:ratios.create');
 });
- 
+
 Route::get('empresas/{empresa}/ratios/calcular-todos', [CalculoRatiosController::class, 'calcularTodos'])
     ->name('ratios.calcular.todos')
     ->middleware('can:ratios.create');
